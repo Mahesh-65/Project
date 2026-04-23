@@ -13,9 +13,9 @@ export default function ShopPage() {
 
   const toast = (msg, err = false) => setStatus({ msg, err });
 
-  const load = async () => {
-    try { setProducts(await api("shop/products")); }
-    catch (e) { toast(e.message, true); }
+  const notify = async (userId, title, message, type = "info") => {
+    try { await api("user/notifications", { method: "POST", body: { userId, title, message, type } }); }
+    catch (e) { console.error("Notify failed", e); }
   };
 
   useEffect(() => {
@@ -37,13 +37,16 @@ export default function ShopPage() {
     } catch (err) { toast(err.message, true); }
   };
 
-  const doCheckout = async (productId, price) => {
+  const doCheckout = async (productId, price, creatorId) => {
     try {
       await api("shop/checkout", {
         method: "POST",
         body: { userId, items: [{ productId, price, qty: 1 }] }
       });
       toast("Order placed! Track it in your profile.");
+      if (creatorId && creatorId !== userId) {
+        await notify(creatorId, "New Order", `Someone bought your product.`, "success");
+      }
     } catch (err) { toast(err.message, true); }
   };
 
@@ -127,7 +130,7 @@ export default function ShopPage() {
                         </span>
                         <div className="flex gap-2">
                           <span className="text-muted text-xs" style={{ alignSelf: "center", marginRight: 8 }}>{p.stock} in stock</span>
-                          <button className="btn btn-sm btn-primary" onClick={() => doCheckout(p._id, p.price)}>Buy →</button>
+                          <button className="btn btn-sm btn-primary" onClick={() => doCheckout(p._id, p.price, p.createdBy)}>Buy →</button>
                         </div>
                       </div>
                     </div>

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { api } from "../../lib/api";
 
 const FORMATS = ["League", "Knockout", "Round Robin", "Swiss"];
@@ -17,6 +17,11 @@ export default function TournamentsPage() {
 
   const toast = (msg, err = false) => setStatus({ msg, err });
 
+  const notify = async (userId, title, message, type = "info") => {
+    try { await api("user/notifications", { method: "POST", body: { userId, title, message, type } }); }
+    catch (e) { console.error("Notify failed", e); }
+  };
+
   const load = async () => {
     try { setList(await api("tournament/tournaments")); }
     catch (e) { toast(e.message, true); }
@@ -27,13 +32,16 @@ export default function TournamentsPage() {
     api("user/users/me").then((me) => setUserId(me._id)).catch(() => {});
   }, []);
 
-  const doRegister = async (tourId) => {
+  const doRegister = async (tourId, creatorId) => {
     try {
       await api(`tournament/tournaments/${tourId}/register`, {
         method: "POST",
         body: { userId }
       });
       toast("Registration request sent! Check your profile for status.");
+      if (creatorId && creatorId !== userId) {
+        await notify(creatorId, "New Tournament Registration", `Someone registered for your tournament.`, "info");
+      }
     } catch (err) { toast(err.message, true); }
   };
 
@@ -116,7 +124,7 @@ export default function TournamentsPage() {
                       <button className="btn btn-sm btn-outline" onClick={() => { setCreated(t); setTab("table"); }}>
                         Standings →
                       </button>
-                      <button className="btn btn-sm btn-primary" onClick={() => doRegister(t._id)}>
+                      <button className="btn btn-sm btn-primary" onClick={() => doRegister(t._id, t.createdBy)}>
                         Register →
                       </button>
                     </div>

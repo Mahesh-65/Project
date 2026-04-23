@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { api } from "../../lib/api";
 
 export default function GroundsPage() {
@@ -12,15 +12,20 @@ export default function GroundsPage() {
 
   const toast = (msg, err = false) => setStatus({ msg, err });
 
-  const load = async () => {
-    try { setRows(await api("ground/grounds/search?q=")); }
-    catch (e) { toast(e.message, true); }
+  const notify = async (userId, title, message, type = "info") => {
+    try { await api("user/notifications", { method: "POST", body: { userId, title, message, type } }); }
+    catch (e) { console.error("Notify failed", e); }
   };
 
   useEffect(() => {
     load();
     api("user/users/me").then((me) => setUserId(me._id)).catch(() => {});
   }, []);
+
+  const load = async () => {
+    try { setRows(await api("ground/grounds/search?q=")); }
+    catch (e) { toast(e.message, true); }
+  };
 
   const addGround = async (e) => {
     e.preventDefault();
@@ -38,13 +43,16 @@ export default function GroundsPage() {
     } catch (err) { toast(err.message, true); }
   };
 
-  const doBook = async (groundId) => {
+  const doBook = async (groundId, ownerId) => {
     try {
       await api("ground/bookings", {
         method: "POST",
         body: { groundId, userId, date: new Date().toISOString().split('T')[0], slots: "1 Hour" }
       });
       toast("Booking request sent! Check your profile for status.");
+      if (ownerId && ownerId !== userId) {
+        await notify(ownerId, "New Ground Booking", `Someone booked your turf.`, "info");
+      }
     } catch (err) { toast(err.message, true); }
   };
 
@@ -120,7 +128,7 @@ export default function GroundsPage() {
                         {g.hourlyPrice
                           ? <span className="badge badge-amber">₹{g.hourlyPrice}/hr</span>
                           : <span className="badge badge-blue">Contact for price</span>}
-                        <button className="btn btn-sm btn-outline" onClick={() => doBook(g._id)}>Book →</button>
+                        <button className="btn btn-sm btn-outline" onClick={() => doBook(g._id, g.ownerId)}>Book →</button>
                       </div>
                     </div>
                   ))}

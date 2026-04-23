@@ -1,9 +1,8 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { api } from "../../lib/api";
 
 export default function TeamsPage() {
-  const [userId, setUserId]  = useState(null);
   const [tab,    setTab]    = useState("create");
   const [create, setCreate] = useState({ name: "", captainId: "" });
   const [join,   setJoin]   = useState({ inviteCode: "", userId: "" });
@@ -12,13 +11,10 @@ export default function TeamsPage() {
 
   const toast = (msg, err = false) => setStatus({ msg, err });
 
-  useEffect(() => {
-    api("user/users/me").then((me) => {
-      setUserId(me._id);
-      setCreate(p => ({ ...p, captainId: me._id }));
-      setJoin(p => ({ ...p, userId: me._id }));
-    }).catch(() => {});
-  }, []);
+  const notify = async (userId, title, message, type = "info") => {
+    try { await api("user/notifications", { method: "POST", body: { userId, title, message, type } }); }
+    catch (e) { console.error("Notify failed", e); }
+  };
 
   const createTeam = async (e) => {
     e.preventDefault();
@@ -33,10 +29,13 @@ export default function TeamsPage() {
     e.preventDefault();
     try {
       const res = await api("team/teams/join", { method: "POST", body: join });
-      toast(res.message || "Successfully sent join request!");
-      setJoin({ inviteCode: "", userId: userId });
-      
-      // Notify captain (optional enhancement: we'd need team owner ID here)
+      toast("Join request sent! Captain needs to approve.");
+      setJoin({ inviteCode: "", userId: "" });
+      // Get team info to notify captain
+      const team = await api(`team/teams/${res.teamId}`);
+      if (team.captainId && team.captainId !== join.userId) {
+        await notify(team.captainId, "New Team Request", `Someone requested to join team ${team.name}.`, "info");
+      }
     } catch (err) { toast(err.message, true); }
   };
 
@@ -81,7 +80,8 @@ export default function TeamsPage() {
                 </label>
                 <label>
                   Captain User ID
-                  <input placeholder="Your user ID" value={create.captainId} disabled />
+                  <input placeholder="Your user ID" value={create.captainId}
+                    onChange={(e) => setCreate({ ...create, captainId: e.target.value })} required />
                 </label>
                 <button type="submit" className="btn btn-primary" style={{ marginTop: 4 }}>
                   Create Team →
@@ -102,10 +102,11 @@ export default function TeamsPage() {
                 </label>
                 <label>
                   Your User ID
-                  <input placeholder="Your user ID" value={join.userId} disabled />
+                  <input placeholder="Your user ID" value={join.userId}
+                    onChange={(e) => setJoin({ ...join, userId: e.target.value })} required />
                 </label>
                 <button type="submit" className="btn btn-green" style={{ marginTop: 4 }}>
-                  Send Join Request →
+                  Join Team →
                 </button>
               </form>
             </div>
@@ -131,7 +132,7 @@ export default function TeamsPage() {
                     <span className="badge badge-green" style={{ marginTop: 4 }}>Active</span>
                   </div>
                 </div>
-                <div className="divider" style={{ margin: "16px 0", borderBottom: "1px solid var(--border)" }} />
+                <div className="divider" />
                 {team.inviteCode && (
                   <div style={{
                     background: "rgba(0,229,160,0.06)",
@@ -144,7 +145,7 @@ export default function TeamsPage() {
                     </div>
                   </div>
                 )}
-                <p className="text-muted text-sm" style={{ marginTop: 10 }}>Share the invite code with players you want to recruit. Requests will appear in your Hub.</p>
+                <p className="text-muted text-sm">Share the invite code with players you want to recruit.</p>
               </div>
             ) : (
               <div style={{ textAlign: "center", padding: "24px 0" }}>

@@ -19,18 +19,12 @@ redisClient.connect().catch(console.error);
 
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
-app.set("trust proxy", 1);
 app.use(session({
   store: new RedisStore({ client: redisClient }),
   secret: process.env.SESSION_SECRET || "change-me",
-  resave: true,
+  resave: false,
   saveUninitialized: false,
-  cookie: {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production" && !process.env.DISABLE_SECURE_COOKIES,
-    sameSite: "lax",
-    maxAge: 1000 * 60 * 60 * 24 * 7
-  }
+  cookie: { httpOnly: true, secure: false, maxAge: 1000 * 60 * 60 * 24 * 7 }
 }));
 
 const authRequired = (req, res, next) => {
@@ -39,6 +33,23 @@ const authRequired = (req, res, next) => {
 };
 
 app.get("/health", (_, res) => res.json({ ok: true, service: "user-service" }));
+
+app.get("/notifications", authRequired, async (req, res) => {
+  const rows = await notifications.find({ userId: req.session.userId }).sort({ createdAt: -1 }).limit(20).toArray();
+  res.json(rows);
+});
+
+app.post("/notifications", async (req, res) => {
+  const { userId, title, message, type } = req.body;
+  const doc = { userId, title, message, type, read: false, createdAt: new Date() };
+  await notifications.insertOne(doc);
+  res.status(201).json(doc);
+});
+
+app.patch("/notifications/read-all", authRequired, async (req, res) => {
+  await notifications.updateMany({ userId: req.session.userId }, { $set: { read: true } });
+  res.json({ message: "Done" });
+});
 
 app.post("/auth/register", async (req, res) => {
   try {
@@ -56,10 +67,7 @@ app.post("/auth/register", async (req, res) => {
     };
     const result = await users.insertOne(doc);
     req.session.userId = result.insertedId.toString();
-    req.session.save((err) => {
-      if (err) return res.status(500).json({ message: "Session save failed" });
-      res.status(201).json({ id: req.session.userId, email, fullName: doc.fullName, role: doc.role });
-    });
+    res.status(201).json({ id: req.session.userId, email, fullName: doc.fullName, role: doc.role });
   } catch (error) {
     res.status(400).json({ message: "Registration failed", error: error.message });
   }
@@ -72,37 +80,40 @@ app.post("/auth/login", async (req, res) => {
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) return res.status(401).json({ message: "Invalid credentials" });
   req.session.userId = user._id.toString();
-  req.session.save((err) => {
-    if (err) return res.status(500).json({ message: "Session save failed" });
-    res.json({ id: user._id, email: user.email, fullName: user.fullName, role: user.role || "user" });
-  });
+  res.json({ id: user._id, email: user.email, fullName: user.fullName, role: user.role || "user" });
 });
 
 app.post("/auth/logout", (req, res) => req.session.destroy(() => res.json({ message: "Logged out" })));
+app.post("/auth/forgot-password", (_, res) => res.json({ message: "If the account exists, a reset email has been queued." }));
+
+app.post("/auth/reset-password", async (req, res) => {
+  const { email, newPassword } = req.body;
+  const hash = await bcrypt.hash(newPassword, 10);
+  await users.updateOne({ email }, { $set: { passwordHash: hash } });
+  res.json({ message: "Password reset successful" });
+});
 
 app.get("/users/me", authRequired, async (req, res) => {
   const user = await users.findOne({ _id: new ObjectId(req.session.userId) }, { projection: { passwordHash: 0 } });
-  if (user && !user.role) user.role = "user";
+  if (user && !user.role) {
+    user.role = "user";
+  }
   res.json(user);
 });
 
-// ── NOTIFICATIONS ────────────────────────────────────────
-
-app.get("/notifications", authRequired, async (req, res) => {
-  const rows = await notifications.find({ userId: req.session.userId }).sort({ createdAt: -1 }).limit(20).toArray();
-  res.json(rows);
-});
-
-app.post("/notifications", async (req, res) => {
-  const { userId, title, message, type } = req.body;
-  const doc = { userId, title, message, type, read: false, createdAt: new Date() };
-  await notifications.insertOne(doc);
-  res.status(201).json({ ok: true });
-});
-
-app.patch("/notifications/:id/read", authRequired, async (req, res) => {
-  await notifications.updateOne({ _id: new ObjectId(req.params.id), userId: req.session.userId }, { $set: { read: true } });
-  res.json({ ok: true });
+app.put("/users/me", authRequired, async (req, res) => {
+  const { city, preferredSports, bio, skillLevel, availability, notificationPreferences } = req.body;
+  await users.updateOne({ _id: new ObjectId(req.session.userId) }, {
+    $set: {
+      city: city || "",
+      preferredSports: preferredSports || [],
+      bio: bio || "",
+      skillLevel: skillLevel || "beginner",
+      availability: availability || [],
+      notificationPreferences: notificationPreferences || {}
+    }
+  });
+  res.json({ message: "Profile updated" });
 });
 
 mongoClient.connect().then(() => {

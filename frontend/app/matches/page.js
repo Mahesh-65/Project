@@ -14,6 +14,11 @@ export default function MatchesPage() {
 
   const toast = (msg, err = false) => setStatus({ msg, err });
 
+  const notify = async (userId, title, message, type = "info") => {
+    try { await api("user/notifications", { method: "POST", body: { userId, title, message, type } }); }
+    catch (e) { console.error("Notify failed", e); }
+  };
+
   const load = async () => {
     try { setMatches(await api("player/matches")); }
     catch (e) { toast(e.message, true); }
@@ -35,29 +40,14 @@ export default function MatchesPage() {
     } catch (e) { toast(e.message, true); }
   };
 
-  const doJoin = async (mId, creatorId) => {
+  const joinMatch = async (matchId, creatorId) => {
     try {
-      await api(`player/matches/${mId}/join`, { method: "POST", body: { userId } });
-      toast("Join request sent!");
-      if (creatorId) {
-        api("user/notifications", {
-          method: "POST",
-          body: {
-            userId: creatorId,
-            title: "New Match Request",
-            message: `Someone wants to join your match. Check your Hub.`,
-            type: "info"
-          }
-        }).catch(() => {});
+      const res = await api(`player/matches/${matchId}/join`, { method: "POST", body: { userId } });
+      toast("Join request sent! Check your profile for status.");
+      if (creatorId && creatorId !== userId) {
+        await notify(creatorId, "New Match Request", `Someone requested to join your match.`, "info");
       }
-    } catch (e) { toast(e.message, true); }
-  };
-
-  const joinById = async () => {
-    if (!joinId.trim()) return;
-    const match = matches.find(m => m._id === joinId);
-    doJoin(joinId, match?.createdBy);
-    setJoinId("");
+    } catch (err) { toast(err.message, true); }
   };
 
   return (
@@ -76,7 +66,7 @@ export default function MatchesPage() {
               className={`btn btn-sm ${tab === t ? "btn-primary" : "btn-outline"}`}
               onClick={() => setTab(t)}
             >
-              {{ list: "📋 Matches", create: "➕ Create", join: "🔗 Join by ID" }[t]}
+              {{ list: "📋 Matches", create: "➕ Create", join: "🔗 Join" }[t]}
             </button>
           ))}
         </div>
@@ -115,12 +105,8 @@ export default function MatchesPage() {
                       <span className="text-muted text-xs">
                         {m.totalSlots} slots
                       </span>
-                      <button
-                        className="btn btn-sm btn-primary"
-                        onClick={() => doJoin(m._id, m.createdBy)}
-                        disabled={m.createdBy === userId}
-                      >
-                        {m.createdBy === userId ? "My Match" : "Join →"}
+                      <button className="btn btn-sm btn-primary" onClick={() => joinMatch(m._id, m.createdBy)}>
+                        Join Match →
                       </button>
                     </div>
                   </div>
@@ -174,7 +160,7 @@ export default function MatchesPage() {
           </div>
         )}
 
-        {/* JOIN BY ID */}
+        {/* JOIN */}
         {tab === "join" && (
           <div className="card fade-up-2" style={{ maxWidth: 480 }}>
             <div className="card-header">
@@ -187,7 +173,7 @@ export default function MatchesPage() {
                 <input placeholder="Paste match ID here" value={joinId}
                   onChange={(e) => setJoinId(e.target.value)} />
               </label>
-              <button className="btn btn-green" onClick={joinById}>Send Join Request →</button>
+              <button className="btn btn-green" onClick={joinMatch}>Send Join Request →</button>
             </div>
           </div>
         )}

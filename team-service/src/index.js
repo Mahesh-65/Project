@@ -10,7 +10,7 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 
 const mongo = new MongoClient(process.env.MONGO_URL || "mongodb://mongo:27017");
-let teams, requests;
+let teams;
 
 app.get("/health", (_, res) => res.json({ ok: true, service: "team-service" }));
 
@@ -29,30 +29,37 @@ app.post("/teams", async (req, res) => {
   res.status(201).json({ _id: r.insertedId, ...doc });
 });
 
-// Request to join a team via invite code
+// Join a team via invite code (request)
 app.post("/teams/join", async (req, res) => {
   const { inviteCode, userId } = req.body;
   if (!inviteCode || !userId) return res.status(400).json({ message: "inviteCode and userId required" });
   const team = await teams.findOne({ inviteCode });
   if (!team) return res.status(404).json({ message: "Invalid invite code" });
-  
-  // check already a member
   const alreadyMember = team.members?.some((m) => m.userId === userId);
-  if (alreadyMember) return res.status(409).json({ message: "Already a member" });
+  if (alreadyMember) return res.status(409).json({ message: "Already a member or pending" });
+  await teams.updateOne(
+    { _id: team._id },
+    { $push: { members: { userId, role: "pending", joinedAt: new Date() } } }
+  );
+  res.json({ message: "Join request sent", teamId: team._id, teamName: team.name });
+});
 
-  // check if request already exists
-  const existing = await requests.findOne({ teamId: team._id.toString(), userId, status: "pending" });
-  if (existing) return res.status(409).json({ message: "Request already pending" });
-
-  const requestDoc = {
-    teamId: team._id.toString(),
-    teamName: team.name,
-    userId,
-    status: "pending",
-    createdAt: new Date()
-  };
-  await requests.insertOne(requestDoc);
-  res.json({ message: "Join request sent", status: "pending" });
+// Approve/Reject join request
+app.patch("/teams/:id/members/:userId", async (req, res) => {
+  const { action } = req.body; // "approve" | "reject"
+  const teamId = new ObjectId(req.params.id);
+  if (action === "approve") {
+    await teams.updateOne(
+      { _id: teamId, "members.userId": req.params.userId },
+      { $set: { "members.$.role": "member", "members.$.joinedAt": new Date() } }
+    );
+  } else {
+    await teams.updateOne(
+      { _id: teamId },
+      { $pull: { members: { userId: req.params.userId } } }
+    );
+  }
+  res.json({ message: `Member ${action === "approve" ? "approved" : "rejected"}` });
 });
 
 // Teams I captain (created)
@@ -68,34 +75,7 @@ app.get("/teams/joined", async (req, res) => {
   const { userId } = req.query;
   if (!userId) return res.status(400).json({ message: "userId required" });
   const rows = await teams.find({ "members.userId": userId }).sort({ createdAt: -1 }).toArray();
-  // find pending requests for this user too
-  const userRequests = await requests.find({ userId, status: "pending" }).toArray();
-  res.json({ teams: rows, requests: userRequests });
-});
-
-// Get requests for a team (captain view)
-app.get("/teams/:id/requests", async (req, res) => {
-  const rows = await requests.find({ teamId: req.params.id, status: "pending" }).sort({ createdAt: -1 }).toArray();
   res.json(rows);
-});
-
-// Approve / reject team join request
-app.patch("/teams/:id/requests/:requestId", async (req, res) => {
-  const { action } = req.body; // "approve" | "reject"
-  const request = await requests.findOne({ _id: new ObjectId(req.params.requestId) });
-  if (!request) return res.status(404).json({ message: "Request not found" });
-
-  const newStatus = action === "approve" ? "approved" : "rejected";
-  await requests.updateOne({ _id: request._id }, { $set: { status: newStatus, updatedAt: new Date() } });
-
-  if (action === "approve") {
-    await teams.updateOne(
-      { _id: new ObjectId(request.teamId) },
-      { $push: { members: { userId: request.userId, role: "member", joinedAt: new Date() } } }
-    );
-  }
-
-  res.json({ message: `Request ${newStatus}` });
 });
 
 // Get single team
@@ -107,10 +87,17 @@ app.get("/teams/:id", async (req, res) => {
   } catch { res.status(400).json({ message: "Invalid ID" }); }
 });
 
+// Remove a member (captain only — no server-side auth check here, handle in frontend)
+app.delete("/teams/:id/members/:userId", async (req, res) => {
+  await teams.updateOne(
+    { _id: new ObjectId(req.params.id) },
+    { $pull: { members: { userId: req.params.userId } } }
+  );
+  res.json({ message: "Member removed" });
+});
+
 mongo.connect().then(() => {
-  const db = mongo.db("team_db");
-  teams = db.collection("teams");
-  requests = db.collection("requests");
+  teams = mongo.db("team_db").collection("teams");
   teams.createIndex({ inviteCode: 1 }, { unique: true }).catch(() => {});
   teams.createIndex({ captainId: 1 }).catch(() => {});
   teams.createIndex({ "members.userId": 1 }).catch(() => {});
