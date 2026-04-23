@@ -1,0 +1,51 @@
+{
+  "user_db.users": {
+    "required": ["email", "passwordHash", "fullName"],
+    "indexes": [
+      { "keys": { "email": 1 }, "options": { "unique": true } },
+      { "keys": { "city": 1 } },
+      { "keys": { "preferredSports": 1 } }
+    ]
+  },
+  "player_db.matches": {
+    "required": ["title", "sport", "location", "totalSlots"],
+    "indexes": [
+      { "keys": { "sport": 1, "location": 1 } },
+      { "keys": { "startsAt": 1 } }
+    ]
+  },
+  "team_db.teams": {
+    "required": ["name", "captainId", "inviteCode"],
+    "indexes": [
+      { "keys": { "inviteCode": 1 }, "options": { "unique": true } },
+      { "keys": { "captainId": 1 } }
+    ]
+  },
+  "tournament_db.tournaments": {
+    "required": ["name", "sport", "format"],
+    "indexes": [
+      { "keys": { "sport": 1 } },
+      { "keys": { "city": 1 } }
+    ]
+  },
+  "ground_db.grounds": {
+    "required": ["name", "area", "city"],
+    "indexes": [
+      { "keys": { "name": "text", "area": "text", "city": "text" } }
+    ]
+  },
+  "shop_db.products": {
+    "required": ["name", "category", "price"],
+    "indexes": [
+      { "keys": { "category": 1 } },
+      { "keys": { "createdAt": -1 } }
+    ]
+  },
+  "admin_db.reports": {
+    "required": ["type", "status"],
+    "indexes": [
+      { "keys": { "status": 1 } },
+      { "keys": { "createdAt": -1 } }
+    ]
+  }
+}

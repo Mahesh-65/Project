@@ -1,0 +1,94 @@
+version: "3.9"
+
+services:
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  user-service:
+    build: ./user-service
+    env_file: .env
+    environment:
+      PORT: 4001
+      MONGO_URL: mongodb://mongo:27017
+    depends_on: [mongo, redis]
+    ports: ["4001:4001"]
+
+  player-service:
+    build: ./player-service
+    env_file: .env
+    environment:
+      PORT: 4002
+      MONGO_URL: mongodb://mongo:27017
+    depends_on: [mongo, redis]
+    ports: ["4002:4002"]
+
+  team-service:
+    build: ./team-service
+    env_file: .env
+    environment:
+      PORT: 4003
+      MONGO_URL: mongodb://mongo:27017
+    depends_on: [mongo]
+    ports: ["4003:4003"]
+
+  tournament-service:
+    build: ./tournament-service
+    env_file: .env
+    environment:
+      PORT: 4004
+      MONGO_URL: mongodb://mongo:27017
+    depends_on: [mongo]
+    ports: ["4004:4004"]
+
+  ground-service:
+    build: ./ground-service
+    env_file: .env
+    environment:
+      PORT: 4005
+      MONGO_URL: mongodb://mongo:27017
+    depends_on: [mongo]
+    ports: ["4005:4005"]
+
+  shop-service:
+    build: ./shop-service
+    env_file: .env
+    environment:
+      PORT: 4006
+      MONGO_URL: mongodb://mongo:27017
+    depends_on: [mongo]
+    ports: ["4006:4006"]
+
+  admin-service:
+    build: ./admin-service
+    env_file: .env
+    environment:
+      PORT: 4007
+      MONGO_URL: mongodb://mongo:27017
+    depends_on: [mongo]
+    ports: ["4007:4007"]
+
+  frontend:
+    build: ./frontend
+    env_file: .env
+    depends_on:
+      - user-service
+      - player-service
+      - team-service
+      - tournament-service
+      - ground-service
+      - shop-service
+      - admin-service
+    ports:
+      - "3000:3000"
+
+volumes:
+  mongo_data:
