@@ -5,6 +5,7 @@ import { api } from "../../lib/api";
 const CATEGORIES = ["Footwear", "Apparel", "Equipment", "Accessories", "Nutrition", "Other"];
 
 export default function ShopPage() {
+  const [userId,   setUserId]   = useState(null);
   const [tab,      setTab]      = useState("catalog");
   const [products, setProducts] = useState([]);
   const [form,     setForm]     = useState({ name: "", category: "", price: "", stock: "" });
@@ -12,24 +13,32 @@ export default function ShopPage() {
 
   const toast = (msg, err = false) => setStatus({ msg, err });
 
-  const load = async () => {
-    try { setProducts(await api("shop/products")); }
-    catch (e) { toast(e.message, true); }
-  };
-
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    api("user/users/me").then((me) => setUserId(me._id)).catch(() => {});
+  }, []);
 
   const addProduct = async (e) => {
     e.preventDefault();
     try {
       await api("shop/products", {
         method: "POST",
-        body: { ...form, price: Number(form.price), stock: Number(form.stock) },
+        body: { ...form, price: Number(form.price), stock: Number(form.stock), createdBy: userId },
       });
       toast("Product added to catalog!");
       setForm({ name: "", category: "", price: "", stock: "" });
       setTab("catalog");
       load();
+    } catch (err) { toast(err.message, true); }
+  };
+
+  const doCheckout = async (productId, price) => {
+    try {
+      await api("shop/checkout", {
+        method: "POST",
+        body: { userId, items: [{ productId, price, qty: 1 }] }
+      });
+      toast("Order placed! Track it in your profile.");
     } catch (err) { toast(err.message, true); }
   };
 
@@ -111,7 +120,10 @@ export default function ShopPage() {
                         <span style={{ fontSize: 18, fontWeight: 800, color: "var(--accent-2)" }}>
                           ₹{p.price?.toLocaleString()}
                         </span>
-                        <span className="text-muted text-xs">{p.stock} in stock</span>
+                        <div className="flex gap-2">
+                          <span className="text-muted text-xs" style={{ alignSelf: "center", marginRight: 8 }}>{p.stock} in stock</span>
+                          <button className="btn btn-sm btn-primary" onClick={() => doCheckout(p._id, p.price)}>Buy →</button>
+                        </div>
                       </div>
                     </div>
                   ))}

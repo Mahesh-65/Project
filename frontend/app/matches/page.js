@@ -5,6 +5,7 @@ import { api } from "../../lib/api";
 const SPORTS = ["Football", "Cricket", "Basketball", "Badminton", "Tennis", "Volleyball"];
 
 export default function MatchesPage() {
+  const [userId, setUserId]   = useState(null);
   const [matches, setMatches] = useState([]);
   const [form, setForm]       = useState({ title: "", sport: "", location: "", totalSlots: "", startsAt: "" });
   const [joinId, setJoinId]   = useState("");
@@ -18,12 +19,15 @@ export default function MatchesPage() {
     catch (e) { toast(e.message, true); }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    api("user/users/me").then((me) => setUserId(me._id)).catch(() => {});
+  }, []);
 
   const createMatch = async (e) => {
     e.preventDefault();
     try {
-      await api("player/matches", { method: "POST", body: { ...form, totalSlots: Number(form.totalSlots) } });
+      await api("player/matches", { method: "POST", body: { ...form, totalSlots: Number(form.totalSlots), createdBy: userId } });
       toast("Match created successfully!");
       setForm({ title: "", sport: "", location: "", totalSlots: "", startsAt: "" });
       setTab("list");

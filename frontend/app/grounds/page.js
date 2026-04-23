@@ -3,6 +3,7 @@ import { useState } from "react";
 import { api } from "../../lib/api";
 
 export default function GroundsPage() {
+  const [userId, setUserId]  = useState(null);
   const [tab,    setTab]    = useState("search");
   const [ground, setGround] = useState({ name: "", area: "", city: "", hourlyPrice: "" });
   const [search, setSearch] = useState("");
@@ -11,10 +12,14 @@ export default function GroundsPage() {
 
   const toast = (msg, err = false) => setStatus({ msg, err });
 
+  useEffect(() => {
+    api("user/users/me").then((me) => setUserId(me._id)).catch(() => {});
+  }, []);
+
   const addGround = async (e) => {
     e.preventDefault();
     try {
-      await api("ground/grounds", { method: "POST", body: { ...ground, hourlyPrice: Number(ground.hourlyPrice) } });
+      await api("ground/grounds", { method: "POST", body: { ...ground, hourlyPrice: Number(ground.hourlyPrice), ownerId: userId } });
       toast("Ground listed successfully!");
       setGround({ name: "", area: "", city: "", hourlyPrice: "" });
       setTab("search");
@@ -24,6 +29,16 @@ export default function GroundsPage() {
   const doSearch = async () => {
     try {
       setRows(await api(`ground/grounds/search?q=${encodeURIComponent(search)}`));
+    } catch (err) { toast(err.message, true); }
+  };
+
+  const doBook = async (groundId) => {
+    try {
+      await api("ground/bookings", {
+        method: "POST",
+        body: { groundId, userId, date: new Date().toISOString().split('T')[0], slots: "1 Hour" }
+      });
+      toast("Booking request sent! Check your profile for status.");
     } catch (err) { toast(err.message, true); }
   };
 
@@ -99,7 +114,7 @@ export default function GroundsPage() {
                         {g.hourlyPrice
                           ? <span className="badge badge-amber">₹{g.hourlyPrice}/hr</span>
                           : <span className="badge badge-blue">Contact for price</span>}
-                        <button className="btn btn-sm btn-outline">Book →</button>
+                        <button className="btn btn-sm btn-outline" onClick={() => doBook(g._id)}>Book →</button>
                       </div>
                     </div>
                   ))}

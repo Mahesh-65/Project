@@ -10,6 +10,7 @@ const NAV = [
   { label: "Tournaments", href: "/tournaments",  icon: "🏆" },
   { label: "Grounds",     href: "/grounds",      icon: "📍" },
   { label: "Shop",        href: "/shop",         icon: "🛒" },
+  { label: "My Profile",  href: "/profile",      icon: "👤" },
 ];
 
 export default function AppShell({ children }) {

@@ -6,7 +6,9 @@ const FORMATS = ["League", "Knockout", "Round Robin", "Swiss"];
 const SPORTS  = ["Football", "Cricket", "Basketball", "Badminton", "Tennis", "Volleyball"];
 
 export default function TournamentsPage() {
-  const [tab,     setTab]     = useState("create");
+  const [userId, setUserId]   = useState(null);
+  const [tab,     setTab]     = useState("list");
+  const [list,    setList]    = useState([]);
   const [form,    setForm]    = useState({ name: "", sport: "", format: "", city: "" });
   const [teams,   setTeams]   = useState("");
   const [created, setCreated] = useState(null);
@@ -15,10 +17,30 @@ export default function TournamentsPage() {
 
   const toast = (msg, err = false) => setStatus({ msg, err });
 
+  const load = async () => {
+    try { setList(await api("tournament/tournaments")); }
+    catch (e) { toast(e.message, true); }
+  };
+
+  useEffect(() => {
+    load();
+    api("user/users/me").then((me) => setUserId(me._id)).catch(() => {});
+  }, []);
+
+  const doRegister = async (tourId) => {
+    try {
+      await api(`tournament/tournaments/${tourId}/register`, {
+        method: "POST",
+        body: { userId }
+      });
+      toast("Registration request sent! Check your profile for status.");
+    } catch (err) { toast(err.message, true); }
+  };
+
   const create = async (e) => {
     e.preventDefault();
     try {
-      const t = await api("tournament/tournaments", { method: "POST", body: form });
+      const t = await api("tournament/tournaments", { method: "POST", body: { ...form, createdBy: userId } });
       setCreated(t);
       toast("Tournament created! Now generate fixtures.");
       setTab("fixtures");
@@ -49,19 +71,60 @@ export default function TournamentsPage() {
       <div className="page-body">
         {/* TABS */}
         <div className="flex gap-2 mb-6 fade-up-2">
-          {["create", "fixtures", "table"].map((t) => (
+          {["list", "create", "fixtures", "table"].map((t) => (
             <button
               key={t}
               className={`btn btn-sm ${tab === t ? "btn-primary" : "btn-outline"}`}
               onClick={() => setTab(t)}
             >
-              {{ create: "🏆 Create", fixtures: "⚙️ Fixtures", table: "📊 Standings" }[t]}
+              {{ list: "📋 Browse", create: "🏆 Create", fixtures: "⚙️ Fixtures", table: "📊 Standings" }[t]}
             </button>
           ))}
         </div>
 
         {status.msg && (
           <p className={`status-bar mb-4${status.err ? " error" : ""}`}>{status.msg}</p>
+        )}
+
+        {/* LIST */}
+        {tab === "list" && (
+          <div className="fade-up-2">
+            {list.length === 0 ? (
+              <div className="card" style={{ textAlign: "center", padding: "48px" }}>
+                <div style={{ fontSize: 48, marginBottom: 12 }}>🏆</div>
+                <p className="font-bold">No tournaments yet</p>
+                <p className="text-muted text-sm mt-2">Be the first to organize a tournament!</p>
+                <button className="btn btn-primary mt-4" onClick={() => setTab("create")}>
+                  Create Tournament →
+                </button>
+              </div>
+            ) : (
+              <div className="item-grid">
+                {list.map((t) => (
+                  <div className="item-card" key={t._id}>
+                    <div className="flex-between mb-4" style={{ alignItems: "flex-start" }}>
+                      <div>
+                        <div className="item-card-title">{t.name}</div>
+                        <div className="item-card-meta">
+                          <span>📍 {t.city}</span>
+                          <span>🏆 {t.format}</span>
+                        </div>
+                      </div>
+                      <span className="badge badge-purple">{t.sport}</span>
+                    </div>
+                    <div className="item-card-footer">
+                      <button className="btn btn-sm btn-outline" onClick={() => { setCreated(t); setTab("table"); }}>
+                        Standings →
+                      </button>
+                      <button className="btn btn-sm btn-primary" onClick={() => doRegister(t._id)}>
+                        Register →
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
 
         {/* CREATE */}
