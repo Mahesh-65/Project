@@ -1,11 +1,30 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { api } from "../../lib/api";
 
 export default function AdminPage() {
+  const router = useRouter();
   const [dashboard, setDashboard] = useState(null);
   const [report, setReport] = useState({ type: "", payload: "" });
   const [status, setStatus] = useState("");
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const checkRole = async () => {
+      try {
+        const me = await api("user/users/me");
+        if ((me.role || "user") !== "admin") {
+          router.replace("/");
+          return;
+        }
+        setReady(true);
+      } catch {
+        router.replace("/auth");
+      }
+    };
+    checkRole();
+  }, [router]);
 
   const load = async () => {
     try {
@@ -28,6 +47,17 @@ export default function AdminPage() {
       setStatus(err.message);
     }
   };
+
+  if (!ready) {
+    return (
+      <section className="module-page">
+        <div className="card">
+          <h2>Verifying admin access...</h2>
+          <p className="muted">Please wait.</p>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="module-page">

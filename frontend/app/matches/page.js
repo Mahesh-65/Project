@@ -29,7 +29,6 @@ export default function MatchesPage() {
         <h1>Match Center</h1>
         <p className="muted">Create games, join open slots, and track upcoming schedules.</p>
       </div>
-      <div className="grid">
       <article className="card">
         <h2>Create Match</h2>
         <form onSubmit={createMatch} className="form-grid">
@@ -50,7 +49,6 @@ export default function MatchesPage() {
           <button type="submit">Join</button>
         </form>
       </article>
-      </div>
 
       <article className="card">
         <h2>Upcoming Matches</h2>

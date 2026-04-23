@@ -93,6 +93,19 @@ button:hover { filter: brightness(1.08); }
 .auth-brand { margin-bottom: 16px; }
 .auth-brand h1 { font-size: 34px; margin-bottom: 6px; }
 .auth-forms { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.auth-single { max-width: 420px; }
+.auth-switch { margin-top: 10px; }
+.text-btn {
+  width: auto;
+  display: inline;
+  background: none;
+  border: none;
+  padding: 0;
+  color: #9fcbff;
+  font-weight: 700;
+  cursor: pointer;
+}
+.text-btn:hover { text-decoration: underline; }
 .hero { border: 1px solid rgba(79, 140, 255, 0.35); }
 .cta-link { display: inline-block; margin-top: 10px; color: #97d9ff; text-decoration: none; font-weight: 700; }
 .list-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }

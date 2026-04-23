@@ -43,13 +43,14 @@ app.post("/auth/register", async (req, res) => {
     const passwordHash = await bcrypt.hash(password, 10);
     const doc = {
       email, passwordHash, fullName,
+      role: "user",
       city: "", preferredSports: [], bio: "", skillLevel: "beginner",
       availability: [], notificationPreferences: { email: true, push: true },
       createdAt: new Date()
     };
     const result = await users.insertOne(doc);
     req.session.userId = result.insertedId.toString();
-    res.status(201).json({ id: req.session.userId, email, fullName: doc.fullName });
+    res.status(201).json({ id: req.session.userId, email, fullName: doc.fullName, role: doc.role });
   } catch (error) {
     res.status(400).json({ message: "Registration failed", error: error.message });
   }
@@ -62,7 +63,7 @@ app.post("/auth/login", async (req, res) => {
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) return res.status(401).json({ message: "Invalid credentials" });
   req.session.userId = user._id.toString();
-  res.json({ id: user._id, email: user.email, fullName: user.fullName });
+  res.json({ id: user._id, email: user.email, fullName: user.fullName, role: user.role || "user" });
 });
 
 app.post("/auth/logout", (req, res) => req.session.destroy(() => res.json({ message: "Logged out" })));
@@ -77,6 +78,9 @@ app.post("/auth/reset-password", async (req, res) => {
 
 app.get("/users/me", authRequired, async (req, res) => {
   const user = await users.findOne({ _id: new ObjectId(req.session.userId) }, { projection: { passwordHash: 0 } });
+  if (user && !user.role) {
+    user.role = "user";
+  }
   res.json(user);
 });
 

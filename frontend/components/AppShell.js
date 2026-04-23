@@ -10,8 +10,7 @@ const NAV_ITEMS = [
   ["Teams", "/teams"],
   ["Tournaments", "/tournaments"],
   ["Grounds", "/grounds"],
-  ["Shop", "/shop"],
-  ["Admin", "/admin"]
+  ["Shop", "/shop"]
 ];
 
 export default function AppShell({ children }) {
@@ -29,6 +28,9 @@ export default function AppShell({ children }) {
         setUser(me);
         setChecking(false);
         if (pathname === "/auth") router.replace("/");
+        if (pathname.startsWith("/admin") && (me.role || "user") !== "admin") {
+          router.replace("/");
+        }
       } catch {
         if (!mounted) return;
         setUser(null);
@@ -75,6 +77,11 @@ export default function AppShell({ children }) {
                 {label}
               </a>
             ))}
+            {(user?.role || "user") === "admin" ? (
+              <a href="/admin" className={pathname === "/admin" ? "active-link" : ""}>
+                Admin
+              </a>
+            ) : null}
             <button className="secondary-btn" onClick={logout}>Logout</button>
           </nav>
         </header>
