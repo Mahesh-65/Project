@@ -30,26 +30,33 @@ export default function AppShell({ children }) {
 
   useEffect(() => {
     let alive = true;
-    api("user/users/me")
-      .then((me) => {
-        if (!alive) return;
-        setUser(me);
-        setChecking(false);
-        fetchNotifs();
-        if (pathname === "/auth") router.replace("/");
-        if (pathname.startsWith("/admin") && (me.role || "user") !== "admin") router.replace("/");
-      })
-      .catch(() => {
-        if (!alive) return;
-        setUser(null);
-        setChecking(false);
-        if (pathname !== "/auth") router.replace("/auth");
-      });
-    
-    // Poll for notifications
+    if (!user || pathname === "/auth") {
+      api("user/users/me")
+        .then((me) => {
+          if (!alive) return;
+          setUser(me);
+          setChecking(false);
+          fetchNotifs();
+          if (pathname === "/auth") router.replace("/");
+        })
+        .catch(() => {
+          if (!alive) return;
+          setUser(null);
+          setChecking(false);
+          if (pathname !== "/auth") router.replace("/auth");
+        });
+    } else {
+      setChecking(false);
+      if (pathname.startsWith("/admin") && (user.role || "user") !== "admin") router.replace("/");
+    }
+    return () => { alive = false; };
+  }, [pathname, router, user]);
+
+  useEffect(() => {
+    if (!user) return;
     const timer = setInterval(fetchNotifs, 30000);
-    return () => { alive = false; clearInterval(timer); };
-  }, [pathname, router]);
+    return () => clearInterval(timer);
+  }, [user]);
 
   const markRead = async (id) => {
     try {

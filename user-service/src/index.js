@@ -19,12 +19,18 @@ redisClient.connect().catch(console.error);
 
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
+app.set("trust proxy", 1);
 app.use(session({
   store: new RedisStore({ client: redisClient }),
   secret: process.env.SESSION_SECRET || "change-me",
-  resave: false,
+  resave: true,
   saveUninitialized: false,
-  cookie: { httpOnly: true, secure: process.env.NODE_ENV === "production", maxAge: 1000 * 60 * 60 * 24 * 7 }
+  cookie: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production" && !process.env.DISABLE_SECURE_COOKIES,
+    sameSite: "lax",
+    maxAge: 1000 * 60 * 60 * 24 * 7
+  }
 }));
 
 const authRequired = (req, res, next) => {
@@ -50,7 +56,10 @@ app.post("/auth/register", async (req, res) => {
     };
     const result = await users.insertOne(doc);
     req.session.userId = result.insertedId.toString();
-    res.status(201).json({ id: req.session.userId, email, fullName: doc.fullName, role: doc.role });
+    req.session.save((err) => {
+      if (err) return res.status(500).json({ message: "Session save failed" });
+      res.status(201).json({ id: req.session.userId, email, fullName: doc.fullName, role: doc.role });
+    });
   } catch (error) {
     res.status(400).json({ message: "Registration failed", error: error.message });
   }
@@ -63,7 +72,10 @@ app.post("/auth/login", async (req, res) => {
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) return res.status(401).json({ message: "Invalid credentials" });
   req.session.userId = user._id.toString();
-  res.json({ id: user._id, email: user.email, fullName: user.fullName, role: user.role || "user" });
+  req.session.save((err) => {
+    if (err) return res.status(500).json({ message: "Session save failed" });
+    res.json({ id: user._id, email: user.email, fullName: user.fullName, role: user.role || "user" });
+  });
 });
 
 app.post("/auth/logout", (req, res) => req.session.destroy(() => res.json({ message: "Logged out" })));
