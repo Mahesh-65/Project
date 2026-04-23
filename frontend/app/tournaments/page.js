@@ -3,8 +3,8 @@ import { useState } from "react";
 import { api } from "../../lib/api";
 
 export default function TournamentsPage() {
-  const [tour, setTour] = useState({ name: "", sport: "football", format: "knockout", city: "" });
-  const [teams, setTeams] = useState("Team A,Team B");
+  const [tour, setTour] = useState({ name: "", sport: "", format: "", city: "" });
+  const [teams, setTeams] = useState("");
   const [created, setCreated] = useState(null);
   const [table, setTable] = useState(null);
   const [status, setStatus] = useState("");
@@ -19,9 +19,15 @@ export default function TournamentsPage() {
   };
 
   return (
-    <section className="grid">
-      <article className="card"><h2>Create Tournament</h2><form className="row" onSubmit={create}><input placeholder="Name" value={tour.name} onChange={(e)=>setTour({...tour,name:e.target.value})} required/><input placeholder="Sport" value={tour.sport} onChange={(e)=>setTour({...tour,sport:e.target.value})} required/><input placeholder="Format" value={tour.format} onChange={(e)=>setTour({...tour,format:e.target.value})} required/><input placeholder="City" value={tour.city} onChange={(e)=>setTour({...tour,city:e.target.value})} required/><button type="submit">Create</button></form></article>
-      <article className="card"><h2>Generate Fixtures</h2><input placeholder="Comma separated team names" value={teams} onChange={(e)=>setTeams(e.target.value)}/><button onClick={fixtures}>Generate</button>{table ? <pre className="muted">{JSON.stringify(table, null, 2)}</pre> : null}<p className="muted">{status}</p></article>
+    <section className="module-page">
+      <div className="card">
+        <h1>Tournament Hub</h1>
+        <p className="muted">Launch competitions and auto-generate match fixtures.</p>
+      </div>
+      <div className="grid">
+        <article className="card"><h2>Create Tournament</h2><form className="form-grid" onSubmit={create}><input placeholder="Tournament Name" value={tour.name} onChange={(e)=>setTour({...tour,name:e.target.value})} required/><input placeholder="Sport" value={tour.sport} onChange={(e)=>setTour({...tour,sport:e.target.value})} required/><input placeholder="Format (League / Knockout)" value={tour.format} onChange={(e)=>setTour({...tour,format:e.target.value})} required/><input placeholder="City" value={tour.city} onChange={(e)=>setTour({...tour,city:e.target.value})} required/><button type="submit">Create</button></form></article>
+        <article className="card"><h2>Generate Fixtures</h2><div className="stack"><input placeholder="Comma-separated team names" value={teams} onChange={(e)=>setTeams(e.target.value)}/><button onClick={fixtures}>Generate</button></div>{table ? <pre className="muted">{JSON.stringify(table, null, 2)}</pre> : null}<p className="muted">{status}</p></article>
+      </div>
     </section>
   );
 }

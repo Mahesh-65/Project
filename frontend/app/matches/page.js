@@ -4,8 +4,8 @@ import { api } from "../../lib/api";
 
 export default function MatchesPage() {
   const [matches, setMatches] = useState([]);
-  const [form, setForm] = useState({ title: "", sport: "football", location: "", totalSlots: 10, startsAt: "" });
-  const [join, setJoin] = useState({ matchId: "", userId: "demo-user" });
+  const [form, setForm] = useState({ title: "", sport: "", location: "", totalSlots: "", startsAt: "" });
+  const [join, setJoin] = useState({ matchId: "", userId: "" });
   const [status, setStatus] = useState("");
 
   const load = async () => {
@@ -24,14 +24,19 @@ export default function MatchesPage() {
   };
 
   return (
-    <section className="grid">
+    <section className="module-page">
+      <div className="card">
+        <h1>Match Center</h1>
+        <p className="muted">Create games, join open slots, and track upcoming schedules.</p>
+      </div>
+      <div className="grid">
       <article className="card">
         <h2>Create Match</h2>
-        <form onSubmit={createMatch} className="row">
+        <form onSubmit={createMatch} className="form-grid">
           <input placeholder="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
           <input placeholder="Sport" value={form.sport} onChange={(e) => setForm({ ...form, sport: e.target.value })} required />
           <input placeholder="Location" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} required />
-          <input type="number" placeholder="Slots" value={form.totalSlots} onChange={(e) => setForm({ ...form, totalSlots: Number(e.target.value) })} required />
+          <input type="number" placeholder="Total Slots" value={form.totalSlots} onChange={(e) => setForm({ ...form, totalSlots: Number(e.target.value) || "" })} required />
           <input type="datetime-local" value={form.startsAt} onChange={(e) => setForm({ ...form, startsAt: e.target.value })} required />
           <button type="submit">Create</button>
         </form>
@@ -39,16 +44,17 @@ export default function MatchesPage() {
 
       <article className="card">
         <h2>Join Match</h2>
-        <form onSubmit={joinMatch} className="row">
+        <form onSubmit={joinMatch} className="stack">
           <input placeholder="Match ID" value={join.matchId} onChange={(e) => setJoin({ ...join, matchId: e.target.value })} required />
           <input placeholder="User ID" value={join.userId} onChange={(e) => setJoin({ ...join, userId: e.target.value })} required />
           <button type="submit">Join</button>
         </form>
       </article>
+      </div>
 
-      <article className="card" style={{ gridColumn: "1/-1" }}>
+      <article className="card">
         <h2>Upcoming Matches</h2>
-        <div className="grid">
+        <div className="list-grid">
           {matches.map((m) => <div className="card" key={m._id}><h3>{m.title}</h3><p className="muted">{m.sport} | {m.location}</p><p className="muted">ID: {m._id}</p></div>)}
         </div>
         <p className="muted">{status}</p>

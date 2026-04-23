@@ -71,11 +71,11 @@ export default function AppShell({ children }) {
           </div>
           <nav>
             {NAV_ITEMS.map(([label, href]) => (
-              <a key={href} href={href}>
+              <a key={href} href={href} className={pathname === href ? "active-link" : ""}>
                 {label}
               </a>
             ))}
-            <button onClick={logout}>Logout</button>
+            <button className="secondary-btn" onClick={logout}>Logout</button>
           </nav>
         </header>
       ) : null}
