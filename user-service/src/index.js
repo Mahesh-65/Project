@@ -12,7 +12,7 @@ const app = express();
 const PORT = process.env.PORT || 4001;
 
 const mongoClient = new MongoClient(process.env.MONGO_URL || "mongodb://mongo:27017");
-let users;
+let users, notifications;
 
 const redisClient = createClient({ url: process.env.REDIS_URL || "redis://redis:6379" });
 redisClient.connect().catch(console.error);
@@ -24,7 +24,7 @@ app.use(session({
   secret: process.env.SESSION_SECRET || "change-me",
   resave: false,
   saveUninitialized: false,
-  cookie: { httpOnly: true, secure: false, maxAge: 1000 * 60 * 60 * 24 * 7 }
+  cookie: { httpOnly: true, secure: process.env.NODE_ENV === "production", maxAge: 1000 * 60 * 60 * 24 * 7 }
 }));
 
 const authRequired = (req, res, next) => {
@@ -67,40 +67,37 @@ app.post("/auth/login", async (req, res) => {
 });
 
 app.post("/auth/logout", (req, res) => req.session.destroy(() => res.json({ message: "Logged out" })));
-app.post("/auth/forgot-password", (_, res) => res.json({ message: "If the account exists, a reset email has been queued." }));
-
-app.post("/auth/reset-password", async (req, res) => {
-  const { email, newPassword } = req.body;
-  const hash = await bcrypt.hash(newPassword, 10);
-  await users.updateOne({ email }, { $set: { passwordHash: hash } });
-  res.json({ message: "Password reset successful" });
-});
 
 app.get("/users/me", authRequired, async (req, res) => {
   const user = await users.findOne({ _id: new ObjectId(req.session.userId) }, { projection: { passwordHash: 0 } });
-  if (user && !user.role) {
-    user.role = "user";
-  }
+  if (user && !user.role) user.role = "user";
   res.json(user);
 });
 
-app.put("/users/me", authRequired, async (req, res) => {
-  const { city, preferredSports, bio, skillLevel, availability, notificationPreferences } = req.body;
-  await users.updateOne({ _id: new ObjectId(req.session.userId) }, {
-    $set: {
-      city: city || "",
-      preferredSports: preferredSports || [],
-      bio: bio || "",
-      skillLevel: skillLevel || "beginner",
-      availability: availability || [],
-      notificationPreferences: notificationPreferences || {}
-    }
-  });
-  res.json({ message: "Profile updated" });
+// ── NOTIFICATIONS ────────────────────────────────────────
+
+app.get("/notifications", authRequired, async (req, res) => {
+  const rows = await notifications.find({ userId: req.session.userId }).sort({ createdAt: -1 }).limit(20).toArray();
+  res.json(rows);
+});
+
+app.post("/notifications", async (req, res) => {
+  const { userId, title, message, type } = req.body;
+  const doc = { userId, title, message, type, read: false, createdAt: new Date() };
+  await notifications.insertOne(doc);
+  res.status(201).json({ ok: true });
+});
+
+app.patch("/notifications/:id/read", authRequired, async (req, res) => {
+  await notifications.updateOne({ _id: new ObjectId(req.params.id), userId: req.session.userId }, { $set: { read: true } });
+  res.json({ ok: true });
 });
 
 mongoClient.connect().then(() => {
-  users = mongoClient.db("user_db").collection("users");
+  const db = mongoClient.db("user_db");
+  users = db.collection("users");
+  notifications = db.collection("notifications");
   users.createIndex({ email: 1 }, { unique: true }).catch(() => {});
+  notifications.createIndex({ userId: 1, createdAt: -1 }).catch(() => {});
   app.listen(PORT, () => console.log(`user-service running on ${PORT}`));
 }).catch(console.error);

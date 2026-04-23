@@ -13,6 +13,11 @@ export default function ShopPage() {
 
   const toast = (msg, err = false) => setStatus({ msg, err });
 
+  const load = async () => {
+    try { setProducts(await api("shop/products")); }
+    catch (e) { toast(e.message, true); }
+  };
+
   useEffect(() => {
     load();
     api("user/users/me").then((me) => setUserId(me._id)).catch(() => {});

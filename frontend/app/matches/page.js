@@ -35,13 +35,29 @@ export default function MatchesPage() {
     } catch (e) { toast(e.message, true); }
   };
 
-  const joinMatch = async () => {
-    if (!joinId.trim()) return;
+  const doJoin = async (mId, creatorId) => {
     try {
-      await api(`player/matches/${joinId}/join`, { method: "POST", body: {} });
+      await api(`player/matches/${mId}/join`, { method: "POST", body: { userId } });
       toast("Join request sent!");
-      setJoinId("");
+      if (creatorId) {
+        api("user/notifications", {
+          method: "POST",
+          body: {
+            userId: creatorId,
+            title: "New Match Request",
+            message: `Someone wants to join your match. Check your Hub.`,
+            type: "info"
+          }
+        }).catch(() => {});
+      }
     } catch (e) { toast(e.message, true); }
+  };
+
+  const joinById = async () => {
+    if (!joinId.trim()) return;
+    const match = matches.find(m => m._id === joinId);
+    doJoin(joinId, match?.createdBy);
+    setJoinId("");
   };
 
   return (
@@ -60,7 +76,7 @@ export default function MatchesPage() {
               className={`btn btn-sm ${tab === t ? "btn-primary" : "btn-outline"}`}
               onClick={() => setTab(t)}
             >
-              {{ list: "📋 Matches", create: "➕ Create", join: "🔗 Join" }[t]}
+              {{ list: "📋 Matches", create: "➕ Create", join: "🔗 Join by ID" }[t]}
             </button>
           ))}
         </div>
@@ -100,10 +116,11 @@ export default function MatchesPage() {
                         {m.totalSlots} slots
                       </span>
                       <button
-                        className="btn btn-sm btn-outline"
-                        onClick={() => { setJoinId(m._id); setTab("join"); }}
+                        className="btn btn-sm btn-primary"
+                        onClick={() => doJoin(m._id, m.createdBy)}
+                        disabled={m.createdBy === userId}
                       >
-                        Join →
+                        {m.createdBy === userId ? "My Match" : "Join →"}
                       </button>
                     </div>
                   </div>
@@ -157,7 +174,7 @@ export default function MatchesPage() {
           </div>
         )}
 
-        {/* JOIN */}
+        {/* JOIN BY ID */}
         {tab === "join" && (
           <div className="card fade-up-2" style={{ maxWidth: 480 }}>
             <div className="card-header">
@@ -170,7 +187,7 @@ export default function MatchesPage() {
                 <input placeholder="Paste match ID here" value={joinId}
                   onChange={(e) => setJoinId(e.target.value)} />
               </label>
-              <button className="btn btn-green" onClick={joinMatch}>Send Join Request →</button>
+              <button className="btn btn-green" onClick={joinById}>Send Join Request →</button>
             </div>
           </div>
         )}

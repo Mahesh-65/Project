@@ -18,6 +18,15 @@ export default function AppShell({ children }) {
   const router   = useRouter();
   const [user,     setUser]     = useState(null);
   const [checking, setChecking] = useState(true);
+  const [notifs,   setNotifs]   = useState([]);
+  const [showNotifs, setShowNotifs] = useState(false);
+
+  const fetchNotifs = async () => {
+    try {
+      const data = await api("user/notifications");
+      setNotifs(data || []);
+    } catch {}
+  };
 
   useEffect(() => {
     let alive = true;
@@ -26,6 +35,7 @@ export default function AppShell({ children }) {
         if (!alive) return;
         setUser(me);
         setChecking(false);
+        fetchNotifs();
         if (pathname === "/auth") router.replace("/");
         if (pathname.startsWith("/admin") && (me.role || "user") !== "admin") router.replace("/");
       })
@@ -35,8 +45,18 @@ export default function AppShell({ children }) {
         setChecking(false);
         if (pathname !== "/auth") router.replace("/auth");
       });
-    return () => { alive = false; };
+    
+    // Poll for notifications
+    const timer = setInterval(fetchNotifs, 30000);
+    return () => { alive = false; clearInterval(timer); };
   }, [pathname, router]);
+
+  const markRead = async (id) => {
+    try {
+      await api(`user/notifications/${id}/read`, { method: "PATCH" });
+      setNotifs(prev => prev.map(n => n._id === id ? { ...n, read: true } : n));
+    } catch {}
+  };
 
   const logout = async () => {
     await api("user/auth/logout", { method: "POST" }).catch(() => {});
@@ -58,6 +78,7 @@ export default function AppShell({ children }) {
 
   if (!user) return null;
 
+  const unreadCount = notifs.filter(n => !n.read).length;
   const initials = user.fullName
     ? user.fullName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
     : "U";
@@ -114,7 +135,37 @@ export default function AppShell({ children }) {
 
       {/* MAIN */}
       <main className="main-content">
-        {children}
+        <header className="main-header">
+           <div style={{ flex: 1 }} />
+           <div className="header-actions">
+              <div className="notif-bell-wrap" onClick={() => setShowNotifs(!showNotifs)}>
+                <span className="notif-bell">🔔</span>
+                {unreadCount > 0 && <span className="notif-badge">{unreadCount}</span>}
+                
+                {showNotifs && (
+                  <div className="notif-dropdown card fade-in">
+                    <div className="notif-header">Notifications</div>
+                    <div className="notif-list">
+                      {notifs.length === 0 ? (
+                        <div className="p-4 text-center text-muted text-sm">No notifications</div>
+                      ) : (
+                        notifs.map(n => (
+                          <div key={n._id} className={`notif-item ${n.read ? 'read' : 'unread'}`} onClick={(e) => { e.stopPropagation(); markRead(n._id); }}>
+                            <div className="notif-title">{n.title}</div>
+                            <div className="notif-msg">{n.message}</div>
+                            <div className="notif-time">{new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+           </div>
+        </header>
+        <div className="main-body">
+          {children}
+        </div>
       </main>
     </div>
   );

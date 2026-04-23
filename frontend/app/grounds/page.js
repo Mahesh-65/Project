@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
 
 export default function GroundsPage() {
@@ -12,7 +12,13 @@ export default function GroundsPage() {
 
   const toast = (msg, err = false) => setStatus({ msg, err });
 
+  const load = async () => {
+    try { setRows(await api("ground/grounds/search?q=")); }
+    catch (e) { toast(e.message, true); }
+  };
+
   useEffect(() => {
+    load();
     api("user/users/me").then((me) => setUserId(me._id)).catch(() => {});
   }, []);
 

@@ -49,73 +49,106 @@ export default function ProfilePage() {
   const [myMatches,     setMyMatches]     = useState([]);
   const [joinedMatches, setJoinedMatches] = useState([]);
   const [myTeams,       setMyTeams]       = useState([]);
+  const [teamRequests,  setTeamRequests]  = useState([]); // join requests I sent
   const [joinedTeams,   setJoinedTeams]   = useState([]);
   const [myTournaments, setMyTournaments] = useState([]);
   const [joinedTours,   setJoinedTours]   = useState([]);
   const [myBookings,    setMyBookings]    = useState([]);
   const [myOrders,      setMyOrders]      = useState([]);
-  const [requests,      setRequests]      = useState({}); // matchId -> requests[]
-  const [tourRegs,      setTourRegs]      = useState({}); // tournamentId -> regs[]
+  const [requests,      setRequests]      = useState({}); // matchId/teamId/tourId -> requests[]
   const [loading,       setLoading]       = useState(true);
   const [status,        setStatus]        = useState({ msg: "", err: false });
 
   const toast = (msg, err = false) => setStatus({ msg, err });
 
-  useEffect(() => {
-    api("user/users/me")
-      .then(setUser)
-      .catch(() => (window.location.href = "/auth"));
-  }, []);
+  const fetchUser = async () => {
+    try {
+      const me = await api("user/users/me");
+      setUser(me);
+    } catch {
+      window.location.href = "/auth";
+    }
+  };
 
-  useEffect(() => {
+  useEffect(() => { fetchUser(); }, []);
+
+  const loadData = async () => {
     if (!user?._id) return;
     const id = user._id;
     setLoading(true);
-    Promise.all([
-      api(`player/matches/mine?userId=${id}`).then(setMyMatches).catch(() => {}),
-      api(`player/matches/joined?userId=${id}`).then(setJoinedMatches).catch(() => {}),
-      api(`team/teams/mine?userId=${id}`).then(setMyTeams).catch(() => {}),
-      api(`team/teams/joined?userId=${id}`).then(setJoinedTeams).catch(() => {}),
-      api(`tournament/tournaments/mine?userId=${id}`).then(setMyTournaments).catch(() => {}),
-      api(`tournament/tournaments/joined?userId=${id}`).then(setJoinedTours).catch(() => {}),
-      api(`ground/bookings/mine?userId=${id}`).then(setMyBookings).catch(() => {}),
-      api(`shop/orders/mine?userId=${id}`).then(setMyOrders).catch(() => {}),
-    ]).finally(() => setLoading(false));
-  }, [user]);
-
-  // Load join requests for a match
-  const loadRequests = async (matchId) => {
-    if (requests[matchId]) return;
     try {
-      const rows = await api(`player/matches/${matchId}/requests`);
-      setRequests((p) => ({ ...p, [matchId]: rows }));
+      const [matchesMine, matchesJoined, teamsMine, teamsJoined, toursMine, toursJoined, bookingsMine, ordersMine] = await Promise.all([
+        api(`player/matches/mine?userId=${id}`).catch(() => []),
+        api(`player/matches/joined?userId=${id}`).catch(() => []),
+        api(`team/teams/mine?userId=${id}`).catch(() => []),
+        api(`team/teams/joined?userId=${id}`).catch(() => ({ teams: [], requests: [] })),
+        api(`tournament/tournaments/mine?userId=${id}`).catch(() => []),
+        api(`tournament/tournaments/joined?userId=${id}`).catch(() => []),
+        api(`ground/bookings/mine?userId=${id}`).catch(() => []),
+        api(`shop/orders/mine?userId=${id}`).catch(() => []),
+      ]);
+
+      setMyMatches(matchesMine);
+      setJoinedMatches(matchesJoined);
+      setMyTeams(teamsMine);
+      setJoinedTeams(teamsJoined.teams || []);
+      setTeamRequests(teamsJoined.requests || []);
+      setMyTournaments(toursMine);
+      setJoinedTours(toursJoined);
+      setMyBookings(bookingsMine);
+      setMyOrders(ordersMine);
+    } catch (e) {
+      toast("Failed to load profile data", true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadData(); }, [user]);
+
+  const loadJoinRequests = async (type, resourceId) => {
+    if (requests[resourceId]) return;
+    try {
+      let rows = [];
+      if (type === "match") rows = await api(`player/matches/${resourceId}/requests`);
+      if (type === "team")  rows = await api(`team/teams/${resourceId}/requests`);
+      if (type === "tour")  rows = await api(`tournament/tournaments/${resourceId}/registrations`);
+      setRequests((p) => ({ ...p, [resourceId]: rows }));
     } catch (e) { toast(e.message, true); }
   };
 
-  // Load registrations for a tournament
-  const loadTourRegs = async (tourId) => {
-    if (tourRegs[tourId]) return;
+  const handleApproval = async (type, resourceId, requestId, action) => {
     try {
-      const rows = await api(`tournament/tournaments/${tourId}/registrations`);
-      setTourRegs((p) => ({ ...p, [tourId]: rows }));
-    } catch (e) { toast(e.message, true); }
-  };
-
-  const approveMatchReq = async (matchId, userId, action) => {
-    try {
-      await api(`player/matches/${matchId}/requests/${userId}`, { method: "PATCH", body: { action } });
+      let endpoint = "";
+      if (type === "match") endpoint = `player/matches/${resourceId}/requests/${requestId}`;
+      if (type === "team")  endpoint = `team/teams/${resourceId}/requests/${requestId}`;
+      if (type === "tour")  endpoint = `tournament/tournaments/${resourceId}/registrations/${requestId}`;
+      
+      await api(endpoint, { method: "PATCH", body: { action } });
       toast(`Request ${action}d!`);
-      const rows = await api(`player/matches/${matchId}/requests`);
-      setRequests((p) => ({ ...p, [matchId]: rows }));
-    } catch (e) { toast(e.message, true); }
-  };
+      
+      // Refresh requests for this resource
+      let rows = [];
+      if (type === "match") rows = await api(`player/matches/${resourceId}/requests`);
+      if (type === "team")  rows = await api(`team/teams/${resourceId}/requests`);
+      if (type === "tour")  rows = await api(`tournament/tournaments/${resourceId}/registrations`);
+      setRequests((p) => ({ ...p, [resourceId]: rows }));
+      
+      // Notify the user who sent the request
+      const targetRequest = requests[resourceId].find(r => (r._id === requestId || r.userId === requestId));
+      if (targetRequest) {
+        api("user/notifications", {
+          method: "POST",
+          body: {
+            userId: targetRequest.userId,
+            title: `Request ${action}d!`,
+            message: `Your request to join ${type} has been ${action}d.`,
+            type: "alert"
+          }
+        }).catch(() => {});
+      }
 
-  const approveTourReg = async (tourId, userId, action) => {
-    try {
-      await api(`tournament/tournaments/${tourId}/registrations/${userId}`, { method: "PATCH", body: { action } });
-      toast(`Registration ${action}d!`);
-      const rows = await api(`tournament/tournaments/${tourId}/registrations`);
-      setTourRegs((p) => ({ ...p, [tourId]: rows }));
+      loadData(); // Refresh counts
     } catch (e) { toast(e.message, true); }
   };
 
@@ -123,22 +156,19 @@ export default function ProfilePage() {
     return (
       <div className="loading-screen">
         <div className="spinner" />
-        <p className="loading-text">Loading your profile…</p>
+        <p className="loading-text">Loading your profile hub…</p>
       </div>
     );
   }
 
   const initials = user.fullName?.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() || "U";
-
-  const totalActivity =
-    myMatches.length + joinedMatches.length + myTeams.length +
-    joinedTeams.length + myOrders.length + myBookings.length;
+  const totalActivity = myMatches.length + joinedMatches.length + myTeams.length + joinedTeams.length + myOrders.length + myBookings.length;
 
   return (
     <>
       <div className="page-header fade-up">
-        <h1 className="page-title">My Profile</h1>
-        <p className="page-subtitle">All your activity, creations and history in one place.</p>
+        <h1 className="page-title">My Hub</h1>
+        <p className="page-subtitle">Manage your creations, track requests and view history.</p>
       </div>
 
       <div className="page-body">
@@ -146,40 +176,34 @@ export default function ProfilePage() {
           <p className={`status-bar mb-4${status.err ? " error" : ""}`}>{status.msg}</p>
         )}
 
-        {/* PROFILE HERO */}
+        {/* HERO */}
         <div className="card card-accent mb-6 fade-up-2" style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
           <div style={{
             width: 72, height: 72, borderRadius: "50%", flexShrink: 0,
             background: "linear-gradient(135deg, var(--accent), var(--accent-3))",
-            display: "grid", placeItems: "center",
-            fontSize: 28, fontWeight: 800, color: "#fff",
+            display: "grid", placeItems: "center", fontSize: 28, fontWeight: 800, color: "#fff",
           }}>{initials}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.5 }}>{user.fullName}</div>
+            <div style={{ fontSize: 22, fontWeight: 800 }}>{user.fullName}</div>
             <div className="text-muted text-sm">{user.email}</div>
-            <div className="flex gap-2 mt-2" style={{ flexWrap: "wrap" }}>
+            <div className="flex gap-2 mt-2">
               <Badge label={user.role || "member"} />
               {user.city && <span className="badge badge-blue">📍 {user.city}</span>}
-              {user.skillLevel && <span className="badge badge-green">{user.skillLevel}</span>}
-              {user.preferredSports?.map((s) => <span key={s} className="badge badge-purple">{s}</span>)}
             </div>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+          <div style={{ textAlign: "right" }}>
             <div style={{ fontSize: 32, fontWeight: 800, color: "var(--accent)" }}>{totalActivity}</div>
-            <div className="text-muted text-xs">Total Activities</div>
-            <a href="/profile/edit" className="btn btn-sm btn-outline" style={{ marginTop: 6 }}>Edit Profile →</a>
+            <div className="text-muted text-xs">Activities</div>
           </div>
         </div>
 
-        {/* QUICK STATS */}
+        {/* STATS */}
         <div className="stat-grid fade-up-3" style={{ marginBottom: 28 }}>
           {[
-            { icon: "⚽", label: "Matches Created",  value: myMatches.length,     color: "rgba(79,140,255,0.15)" },
-            { icon: "🤝", label: "Matches Joined",   value: joinedMatches.length,  color: "rgba(0,229,160,0.12)" },
-            { icon: "🛡️", label: "Teams Captained",  value: myTeams.length,        color: "rgba(168,85,247,0.12)"},
-            { icon: "🏆", label: "Tournaments",       value: myTournaments.length + joinedTours.length, color: "rgba(251,191,36,0.12)" },
-            { icon: "📍", label: "Bookings Made",     value: myBookings.length,     color: "rgba(255,77,109,0.12)" },
-            { icon: "🛒", label: "Orders Placed",     value: myOrders.length,       color: "rgba(79,140,255,0.12)" },
+            { icon: "⚽", label: "Matches", value: myMatches.length + joinedMatches.length, color: "rgba(79,140,255,0.15)" },
+            { icon: "🛡️", label: "Teams", value: myTeams.length + joinedTeams.length, color: "rgba(168,85,247,0.12)" },
+            { icon: "🏆", label: "Tournaments", value: myTournaments.length + joinedTours.length, color: "rgba(251,191,36,0.12)" },
+            { icon: "📍", label: "Bookings", value: myBookings.length, color: "rgba(255,77,109,0.12)" },
           ].map((s) => (
             <div className="stat-card" key={s.label}>
               <div className="stat-icon-wrap" style={{ background: s.color }}>{s.icon}</div>
@@ -189,14 +213,10 @@ export default function ProfilePage() {
           ))}
         </div>
 
-        {/* TAB BAR */}
-        <div className="flex gap-2 mb-6 fade-up-4" style={{ flexWrap: "wrap" }}>
+        {/* TABS */}
+        <div className="flex gap-2 mb-6 fade-up-4" style={{ flexWrap: "wrap", borderBottom: "1px solid var(--border)", paddingBottom: 16 }}>
           {TABS.map((t) => (
-            <button
-              key={t.id}
-              className={`btn btn-sm ${tab === t.id ? "btn-primary" : "btn-outline"}`}
-              onClick={() => setTab(t.id)}
-            >
+            <button key={t.id} className={`btn btn-sm ${tab === t.id ? "btn-primary" : "btn-outline"}`} onClick={() => setTab(t.id)}>
               {t.icon} {t.label}
             </button>
           ))}
@@ -204,45 +224,30 @@ export default function ProfilePage() {
 
         {/* ── OVERVIEW ── */}
         {tab === "overview" && (
-          <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))" }}>
-            {/* Bio */}
-            <div className="card">
-              <div className="card-header"><span className="card-title">About</span></div>
-              <p className="text-muted text-sm" style={{ lineHeight: 1.8 }}>
-                {user.bio || "No bio added yet. Edit your profile to add one."}
-              </p>
-              {user.availability?.length > 0 && (
-                <div className="mt-4">
-                  <div className="text-xs text-muted" style={{ marginBottom: 6 }}>AVAILABILITY</div>
-                  <div className="flex gap-2" style={{ flexWrap: "wrap" }}>
-                    {user.availability.map((a) => <span key={a} className="badge badge-blue">{a}</span>)}
-                  </div>
-                </div>
-              )}
-            </div>
-            {/* Recent activity */}
+          <div style={{ display: "grid", gap: 20, gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))" }}>
             <div className="card">
               <div className="card-header"><span className="card-title">Recent Activity</span></div>
               <div className="form-stack">
-                {myMatches.slice(0, 2).map((m) => (
-                  <div key={m._id} style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                {[...myMatches, ...joinedMatches].slice(0, 3).map(m => (
+                  <div key={m._id} style={{ display: "flex", gap: 12 }}>
                     <span style={{ fontSize: 20 }}>⚽</span>
-                    <div>
-                      <div className="text-sm font-bold">{m.title}</div>
-                      <div className="text-muted text-xs">Created match · {m.location}</div>
-                    </div>
+                    <div><div className="text-sm font-bold">{m.title}</div><div className="text-muted text-xs">Match activity</div></div>
                   </div>
                 ))}
-                {joinedMatches.slice(0, 2).map((m) => (
-                  <div key={m._id} style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                    <span style={{ fontSize: 20 }}>🤝</span>
-                    <div>
-                      <div className="text-sm font-bold">{m.title}</div>
-                      <div className="text-muted text-xs">Joined match · <Badge label={m.joinStatus} /></div>
-                    </div>
-                  </div>
-                ))}
-                {totalActivity === 0 && <EmptyState icon="🌱" text="No activity yet. Start by joining a match!" action="/matches" actionLabel="Browse Matches" />}
+                {totalActivity === 0 && <EmptyState icon="🌱" text="No activity yet." action="/matches" actionLabel="Find Matches" />}
+              </div>
+            </div>
+            <div className="card">
+              <div className="card-header"><span className="card-title">My Stats</span></div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <div className="stat-card" style={{ padding: 15 }}>
+                  <div className="stat-value" style={{ fontSize: 24 }}>{myOrders.length}</div>
+                  <div className="stat-label">Orders</div>
+                </div>
+                <div className="stat-card" style={{ padding: 15 }}>
+                  <div className="stat-value" style={{ fontSize: 24 }}>{myBookings.length}</div>
+                  <div className="stat-label">Bookings</div>
+                </div>
               </div>
             </div>
           </div>
@@ -250,269 +255,172 @@ export default function ProfilePage() {
 
         {/* ── MY MATCHES ── */}
         {tab === "my-matches" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-            {/* Created */}
-            <div>
-              <p className="section-title">Matches I Created ({myMatches.length})</p>
-              {myMatches.length === 0
-                ? <EmptyState icon="⚽" text="You haven't created any matches yet." action="/matches" actionLabel="Create Match" />
-                : myMatches.map((m) => (
-                  <div className="card mb-4" key={m._id}>
-                    <div className="flex-between" style={{ flexWrap: "wrap", gap: 10 }}>
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: 16 }}>{m.title}</div>
-                        <div className="text-muted text-sm">📍 {m.location} · {m.sport} · {m.totalSlots} slots</div>
-                        {m.startsAt && <div className="text-muted text-xs">🗓 {new Date(m.startsAt).toLocaleString()}</div>}
-                      </div>
-                      <button
-                        className="btn btn-sm btn-outline"
-                        onClick={() => loadRequests(m._id)}
-                      >View Join Requests</button>
-                    </div>
-
-                    {/* JOIN REQUESTS */}
-                    {requests[m._id] && (
-                      <div style={{ marginTop: 16, borderTop: "1px solid var(--border)", paddingTop: 14 }}>
-                        <div className="text-xs text-muted" style={{ marginBottom: 8 }}>
-                          JOIN REQUESTS ({requests[m._id].length})
-                        </div>
-                        {requests[m._id].length === 0
-                          ? <p className="text-muted text-sm">No requests yet.</p>
-                          : requests[m._id].map((r) => (
-                            <div key={r._id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
-                              <div>
-                                <span className="text-sm font-bold">User: {r.userId?.slice(-8)}</span>
-                                <Badge label={r.status} />
-                              </div>
-                              {r.status === "waiting" && (
-                                <div className="flex gap-2">
-                                  <button className="btn btn-sm btn-green" onClick={() => approveMatchReq(m._id, r.userId, "approve")}>Approve</button>
-                                  <button className="btn btn-sm btn-danger" onClick={() => approveMatchReq(m._id, r.userId, "reject")}>Reject</button>
-                                </div>
-                              )}
-                            </div>
-                          ))
-                        }
-                      </div>
-                    )}
+          <div className="form-stack">
+            <p className="section-title">Created Matches</p>
+            {myMatches.map(m => (
+              <div className="card mb-3" key={m._id}>
+                <div className="flex-between">
+                  <div>
+                    <div className="font-bold">{m.title}</div>
+                    <div className="text-muted text-sm">{m.location} · {m.sport}</div>
                   </div>
-                ))
-              }
-            </div>
-
-            {/* Joined */}
-            <div>
-              <p className="section-title">Matches I Joined ({joinedMatches.length})</p>
-              {joinedMatches.length === 0
-                ? <EmptyState icon="🤝" text="You haven't joined any matches yet." action="/matches" actionLabel="Browse Matches" />
-                : (
-                  <div className="item-grid">
-                    {joinedMatches.map((m) => (
-                      <div className="item-card" key={m._id}>
-                        <div className="item-card-title">{m.title}</div>
-                        <div className="item-card-meta">
-                          <span>📍 {m.location}</span>
-                          <span>🎮 {m.sport}</span>
-                        </div>
-                        <div className="item-card-footer">
-                          <Badge label={m.joinStatus} />
-                          <span className="text-muted text-xs">{m.totalSlots} slots</span>
-                        </div>
+                  <button className="btn btn-sm btn-outline" onClick={() => loadJoinRequests("match", m._id)}>Manage Requests</button>
+                </div>
+                {requests[m._id] && (
+                  <div className="mt-4 border-t pt-3">
+                    {requests[m._id].length === 0 ? <p className="text-muted text-sm">No requests.</p> : requests[m._id].map(r => (
+                      <div key={r._id} className="flex-between py-2 border-b last:border-0">
+                        <div><span className="text-sm">User {r.userId.slice(-6)}</span> <Badge label={r.status}/></div>
+                        {r.status === "waiting" && (
+                          <div className="flex gap-2">
+                            <button className="btn btn-sm btn-green" onClick={() => handleApproval("match", m._id, r.userId, "approve")}>Approve</button>
+                            <button className="btn btn-sm btn-danger" onClick={() => handleApproval("match", m._id, r.userId, "reject")}>Reject</button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
-                )
-              }
+                )}
+              </div>
+            ))}
+            {myMatches.length === 0 && <EmptyState icon="⚽" text="No matches created." />}
+            
+            <p className="section-title mt-6">Joined Matches</p>
+            <div className="item-grid">
+              {joinedMatches.map(m => (
+                <div className="item-card" key={m._id}>
+                  <div className="item-card-title">{m.title}</div>
+                  <div className="item-card-footer"><Badge label={m.joinStatus}/></div>
+                </div>
+              ))}
             </div>
+            {joinedMatches.length === 0 && <EmptyState icon="🤝" text="No matches joined." />}
           </div>
         )}
 
         {/* ── MY TEAMS ── */}
         {tab === "my-teams" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-            <div>
-              <p className="section-title">Teams I Captain ({myTeams.length})</p>
-              {myTeams.length === 0
-                ? <EmptyState icon="🛡️" text="You haven't created any teams yet." action="/teams" actionLabel="Create Team" />
-                : myTeams.map((t) => (
-                  <div className="card mb-4" key={t._id}>
-                    <div className="flex-between" style={{ gap: 10, flexWrap: "wrap" }}>
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: 16 }}>{t.name}</div>
-                        <div className="text-muted text-sm">{t.members?.length || 0} members · {t.wins}W {t.losses}L</div>
-                      </div>
-                      <div style={{
-                        padding: "10px 16px", borderRadius: 10,
-                        background: "rgba(0,229,160,0.07)", border: "1px solid rgba(0,229,160,0.15)"
-                      }}>
-                        <div className="text-xs text-muted">INVITE CODE</div>
-                        <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: 2, color: "var(--accent-2)" }}>{t.inviteCode}</div>
-                      </div>
-                    </div>
-                    {t.members?.length > 0 && (
-                      <div style={{ marginTop: 14, borderTop: "1px solid var(--border)", paddingTop: 14 }}>
-                        <div className="text-xs text-muted mb-3">MEMBERS</div>
-                        {t.members.map((m) => (
-                          <div key={m.userId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0" }}>
-                            <span className="text-sm">…{m.userId?.slice(-10)}</span>
-                            <Badge label={m.role} />
-                          </div>
-                        ))}
-                      </div>
-                    )}
+          <div className="form-stack">
+            <p className="section-title">Teams I Captain</p>
+            {myTeams.map(t => (
+              <div className="card mb-3" key={t._id}>
+                <div className="flex-between">
+                  <div>
+                    <div className="font-bold">{t.name}</div>
+                    <div className="text-muted text-sm">Invite Code: <span className="text-primary font-mono">{t.inviteCode}</span></div>
                   </div>
-                ))
-              }
-            </div>
-            <div>
-              <p className="section-title">Teams I'm Part Of ({joinedTeams.filter((t) => t.captainId !== user._id).length})</p>
-              {joinedTeams.filter((t) => t.captainId !== user._id).length === 0
-                ? <EmptyState icon="🤝" text="You haven't joined any teams yet." action="/teams" actionLabel="Join a Team" />
-                : (
-                  <div className="item-grid">
-                    {joinedTeams.filter((t) => t.captainId !== user._id).map((t) => (
-                      <div className="item-card" key={t._id}>
-                        <div className="item-card-title">{t.name}</div>
-                        <div className="item-card-meta">
-                          <span>{t.members?.length || 0} members</span>
-                          <span>{t.wins}W {t.losses}L</span>
-                        </div>
-                        <div className="item-card-footer">
-                          <Badge label="member" />
-                        </div>
+                  <button className="btn btn-sm btn-outline" onClick={() => loadJoinRequests("team", t._id)}>Manage Members</button>
+                </div>
+                {requests[t._id] && (
+                  <div className="mt-4 border-t pt-3">
+                    <p className="text-xs text-muted mb-2">JOIN REQUESTS</p>
+                    {requests[t._id].length === 0 ? <p className="text-muted text-sm">No pending requests.</p> : requests[t._id].map(r => (
+                      <div key={r._id} className="flex-between py-2 border-b last:border-0">
+                        <div><span className="text-sm">User {r.userId.slice(-6)}</span> <Badge label={r.status}/></div>
+                        {r.status === "pending" && (
+                          <div className="flex gap-2">
+                            <button className="btn btn-sm btn-green" onClick={() => handleApproval("team", t._id, r._id, "approve")}>Approve</button>
+                            <button className="btn btn-sm btn-danger" onClick={() => handleApproval("team", t._id, r._id, "reject")}>Reject</button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
-                )
-              }
+                )}
+                <div className="mt-3 pt-3 border-t">
+                  <p className="text-xs text-muted mb-2">MEMBERS ({t.members?.length || 0})</p>
+                  <div className="flex gap-2 flex-wrap">
+                    {t.members?.map(m => <span key={m.userId} className="badge badge-blue">…{m.userId.slice(-6)} ({m.role})</span>)}
+                  </div>
+                </div>
+              </div>
+            ))}
+            {myTeams.length === 0 && <EmptyState icon="🛡️" text="You aren't a captain of any team." />}
+
+            <p className="section-title mt-6">Joined Teams</p>
+            <div className="item-grid">
+              {joinedTeams.map(t => (
+                <div className="item-card" key={t._id}>
+                  <div className="item-card-title">{t.name}</div>
+                  <div className="item-card-footer"><Badge label="Member"/></div>
+                </div>
+              ))}
+              {teamRequests.map(r => (
+                <div className="item-card" key={r._id} style={{ opacity: 0.7 }}>
+                  <div className="item-card-title">{r.teamName}</div>
+                  <div className="item-card-footer"><Badge label={r.status}/></div>
+                </div>
+              ))}
             </div>
+            {joinedTeams.length === 0 && teamRequests.length === 0 && <EmptyState icon="🤝" text="No teams joined or pending." />}
           </div>
         )}
 
         {/* ── MY TOURNAMENTS ── */}
         {tab === "my-tournaments" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-            <div>
-              <p className="section-title">Tournaments I Organized ({myTournaments.length})</p>
-              {myTournaments.length === 0
-                ? <EmptyState icon="🏆" text="You haven't organized any tournaments yet." action="/tournaments" actionLabel="Create Tournament" />
-                : myTournaments.map((t) => (
-                  <div className="card mb-4" key={t._id}>
-                    <div className="flex-between" style={{ flexWrap: "wrap", gap: 10 }}>
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: 16 }}>{t.name}</div>
-                        <div className="text-muted text-sm">{t.sport} · {t.format} · {t.city}</div>
-                      </div>
-                      <button className="btn btn-sm btn-outline" onClick={() => loadTourRegs(t._id)}>
-                        View Registrations
-                      </button>
-                    </div>
-                    {tourRegs[t._id] && (
-                      <div style={{ marginTop: 14, borderTop: "1px solid var(--border)", paddingTop: 14 }}>
-                        <div className="text-xs text-muted mb-3">REGISTRATIONS ({tourRegs[t._id].length})</div>
-                        {tourRegs[t._id].length === 0
-                          ? <p className="text-muted text-sm">No registrations yet.</p>
-                          : tourRegs[t._id].map((r) => (
-                            <div key={r._id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
-                              <div>
-                                <span className="text-sm font-bold">User: {r.userId?.slice(-8)}</span>
-                                {" "}<Badge label={r.status} />
-                              </div>
-                              {r.status === "pending" && (
-                                <div className="flex gap-2">
-                                  <button className="btn btn-sm btn-green" onClick={() => approveTourReg(t._id, r.userId, "approve")}>Approve</button>
-                                  <button className="btn btn-sm btn-danger" onClick={() => approveTourReg(t._id, r.userId, "reject")}>Reject</button>
-                                </div>
-                              )}
-                            </div>
-                          ))
-                        }
-                      </div>
-                    )}
-                  </div>
-                ))
-              }
-            </div>
-            <div>
-              <p className="section-title">Tournaments I Registered For ({joinedTours.length})</p>
-              {joinedTours.length === 0
-                ? <EmptyState icon="🎯" text="You haven't registered for any tournaments." action="/tournaments" actionLabel="Browse Tournaments" />
-                : (
-                  <div className="item-grid">
-                    {joinedTours.map((t) => (
-                      <div className="item-card" key={t._id}>
-                        <div className="item-card-title">{t.name}</div>
-                        <div className="item-card-meta">
-                          <span>{t.sport} · {t.format}</span>
-                          <span>📍 {t.city}</span>
-                        </div>
-                        <div className="item-card-footer"><Badge label={t.regStatus} /></div>
+          <div className="form-stack">
+            <p className="section-title">My Tournaments</p>
+            {myTournaments.map(t => (
+              <div className="card mb-3" key={t._id}>
+                <div className="flex-between">
+                  <div><div className="font-bold">{t.name}</div><div className="text-muted text-sm">{t.sport} · {t.city}</div></div>
+                  <button className="btn btn-sm btn-outline" onClick={() => loadJoinRequests("tour", t._id)}>Registrations</button>
+                </div>
+                {requests[t._id] && (
+                  <div className="mt-4 border-t pt-3">
+                    {requests[t._id].map(r => (
+                      <div key={r._id} className="flex-between py-2 border-b last:border-0">
+                        <div><span className="text-sm">User {r.userId.slice(-6)}</span> <Badge label={r.status}/></div>
+                        {r.status === "pending" && (
+                          <div className="flex gap-2">
+                            <button className="btn btn-sm btn-green" onClick={() => handleApproval("tour", t._id, r.userId, "approve")}>Approve</button>
+                            <button className="btn btn-sm btn-danger" onClick={() => handleApproval("tour", t._id, r.userId, "reject")}>Reject</button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
-                )
-              }
+                )}
+              </div>
+            ))}
+            <p className="section-title mt-6">Participating</p>
+            <div className="item-grid">
+              {joinedTours.map(t => (
+                <div className="item-card" key={t._id}>
+                  <div className="item-card-title">{t.name}</div>
+                  <div className="item-card-footer"><Badge label={t.regStatus}/></div>
+                </div>
+              ))}
             </div>
           </div>
         )}
 
         {/* ── MY BOOKINGS ── */}
         {tab === "my-bookings" && (
-          <div>
-            <p className="section-title">My Ground Bookings ({myBookings.length})</p>
-            {myBookings.length === 0
-              ? <EmptyState icon="📍" text="No bookings made yet." action="/grounds" actionLabel="Find Grounds" />
-              : (
-                <div className="item-grid">
-                  {myBookings.map((b) => (
-                    <div className="item-card" key={b._id}>
-                      <div className="item-card-title">{b.ground?.name || "Ground Booking"}</div>
-                      <div className="item-card-meta">
-                        {b.ground && <span>📍 {b.ground.area}, {b.ground.city}</span>}
-                        <span>🗓 {b.date || "Date TBD"}</span>
-                        {b.slots && <span>⏰ {b.slots}</span>}
-                      </div>
-                      <div className="item-card-footer">
-                        <Badge label={b.status || "pending"} />
-                        <Badge label={b.paymentStatus || "pending"} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )
-            }
+          <div className="item-grid">
+            {myBookings.map(b => (
+              <div className="item-card" key={b._id}>
+                <div className="item-card-title">{b.ground?.name || "Ground Booking"}</div>
+                <div className="item-card-meta"><span>🗓 {b.date}</span></div>
+                <div className="item-card-footer"><Badge label={b.status}/></div>
+              </div>
+            ))}
+            {myBookings.length === 0 && <EmptyState icon="📍" text="No bookings yet." />}
           </div>
         )}
 
         {/* ── MY ORDERS ── */}
         {tab === "my-orders" && (
-          <div>
-            <p className="section-title">My Orders ({myOrders.length})</p>
-            {myOrders.length === 0
-              ? <EmptyState icon="🛒" text="No orders placed yet." action="/shop" actionLabel="Browse Shop" />
-              : myOrders.map((o) => (
-                <div className="card mb-4" key={o._id}>
-                  <div className="flex-between" style={{ flexWrap: "wrap", gap: 10 }}>
-                    <div>
-                      <div style={{ fontWeight: 700 }}>{o.invoiceNumber}</div>
-                      <div className="text-muted text-xs">{o.trackingId}</div>
-                      <div className="text-muted text-sm mt-1">{o.items?.length || 0} item(s) · ₹{o.total?.toLocaleString()}</div>
-                    </div>
-                    <Badge label={o.status} />
-                  </div>
-                  {o.items?.length > 0 && (
-                    <div style={{ marginTop: 12, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
-                      {o.items.map((item, i) => (
-                        <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
-                          <span className="text-sm">{item.name || item.productId}</span>
-                          <span className="text-muted text-sm">×{item.qty || 1} · ₹{item.price}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+          <div className="form-stack">
+            {myOrders.map(o => (
+              <div className="card mb-3" key={o._id}>
+                <div className="flex-between">
+                  <div><div className="font-bold">{o.invoiceNumber}</div><div className="text-muted text-sm">₹{o.total}</div></div>
+                  <Badge label={o.status}/>
                 </div>
-              ))
-            }
+              </div>
+            ))}
+            {myOrders.length === 0 && <EmptyState icon="🛒" text="No orders yet." />}
           </div>
         )}
       </div>
