@@ -18,6 +18,11 @@ export default function ShopPage() {
     catch (e) { console.error("Notify failed", e); }
   };
 
+  const load = async () => {
+    try { setProducts(await api("shop/products")); }
+    catch (e) { toast(e.message, true); }
+  };
+
   useEffect(() => {
     load();
     api("user/users/me").then((me) => setUserId(me._id)).catch(() => {});
