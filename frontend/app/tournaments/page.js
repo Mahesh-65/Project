@@ -1,3 +1,27 @@
+"use client";
+import { useState } from "react";
+import { api } from "../../lib/api";
+
 export default function TournamentsPage() {
-  return (<section><h2>Tournaments</h2><div className="card"><p className="muted">Support for knockout, league, and group stages with automatic fixtures and points table.</p></div></section>);
+  const [tour, setTour] = useState({ name: "", sport: "football", format: "knockout", city: "" });
+  const [teams, setTeams] = useState("Team A,Team B");
+  const [created, setCreated] = useState(null);
+  const [table, setTable] = useState(null);
+  const [status, setStatus] = useState("");
+
+  const create = async (e) => {
+    e.preventDefault();
+    try { const t = await api("tournament/tournaments", { method: "POST", body: tour }); setCreated(t); setStatus("Tournament created"); } catch (err) { setStatus(err.message); }
+  };
+  const fixtures = async () => {
+    if (!created?._id) return;
+    try { await api(`tournament/tournaments/${created._id}/fixtures/auto`, { method: "POST", body: { teams: teams.split(",").map((x) => x.trim()).filter(Boolean) } }); setStatus("Fixtures generated"); setTable(await api(`tournament/tournaments/${created._id}/table`)); } catch (err) { setStatus(err.message); }
+  };
+
+  return (
+    <section className="grid">
+      <article className="card"><h2>Create Tournament</h2><form className="row" onSubmit={create}><input placeholder="Name" value={tour.name} onChange={(e)=>setTour({...tour,name:e.target.value})} required/><input placeholder="Sport" value={tour.sport} onChange={(e)=>setTour({...tour,sport:e.target.value})} required/><input placeholder="Format" value={tour.format} onChange={(e)=>setTour({...tour,format:e.target.value})} required/><input placeholder="City" value={tour.city} onChange={(e)=>setTour({...tour,city:e.target.value})} required/><button type="submit">Create</button></form></article>
+      <article className="card"><h2>Generate Fixtures</h2><input placeholder="Comma separated team names" value={teams} onChange={(e)=>setTeams(e.target.value)}/><button onClick={fixtures}>Generate</button>{table ? <pre className="muted">{JSON.stringify(table, null, 2)}</pre> : null}<p className="muted">{status}</p></article>
+    </section>
+  );
 }

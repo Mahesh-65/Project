@@ -10,6 +10,7 @@ export default function RootLayout({ children }) {
           <h1>Sports Community</h1>
           <nav>
             <a href="/">Home</a>
+            <a href="/auth">Login/Register</a>
             <a href="/matches">Matches</a>
             <a href="/teams">Teams</a>
             <a href="/tournaments">Tournaments</a>

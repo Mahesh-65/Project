@@ -4,6 +4,7 @@
   --card: #1e293b;
   --text: #e2e8f0;
   --muted: #94a3b8;
+  --accent: #22d3ee;
 }
 * { box-sizing: border-box; }
 body { margin: 0; font-family: Arial, sans-serif; background: var(--bg); color: var(--text); }
@@ -14,3 +15,7 @@ body { margin: 0; font-family: Arial, sans-serif; background: var(--bg); color: 
 .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 .card { background: var(--card); border-radius: 12px; padding: 14px; border: 1px solid #334155; }
 .muted { color: var(--muted); font-size: 14px; }
+input, select, textarea, button { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #475569; background: #0b1220; color: var(--text); }
+button { cursor: pointer; background: #0e7490; border-color: #0e7490; }
+button:hover { background: #0f5f75; }
+.row { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit,minmax(140px,1fr)); }
