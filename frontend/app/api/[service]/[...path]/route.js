@@ -21,7 +21,10 @@ async function proxy(req, { params }) {
 
   const upstream = await fetch(target, {
     method: req.method,
-    headers: { "content-type": req.headers.get("content-type") || "application/json" },
+    headers: {
+      "content-type": req.headers.get("content-type") || "application/json",
+      cookie: req.headers.get("cookie") || ""
+    },
     body,
     cache: "no-store"
   });
