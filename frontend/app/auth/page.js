@@ -3,77 +3,180 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "../../lib/api";
 
+const FEATURES = [
+  "Find players near you instantly",
+  "Organize matches & tournaments",
+  "Manage teams & bookings",
+  "Track stats & performance",
+];
+
 export default function AuthPage() {
-  const router = useRouter();
-  const [mode, setMode] = useState("login");
-  const [register, setRegister] = useState({ email: "", password: "", fullName: "" });
-  const [login, setLogin] = useState({ email: "", password: "" });
-  const [status, setStatus] = useState("Welcome! Sign in or create an account to continue.");
+  const router  = useRouter();
+  const [tab,    setTab]    = useState("login");
+  const [login,  setLogin]  = useState({ email: "", password: "" });
+  const [reg,    setReg]    = useState({ fullName: "", email: "", password: "" });
+  const [status, setStatus] = useState("");
+  const [isErr,  setIsErr]  = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const toast = (msg, err = false) => { setStatus(msg); setIsErr(err); };
+
+  const onLogin = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await api("user/auth/login", { method: "POST", body: login });
+      toast("Login successful! Redirecting…");
+      router.replace("/");
+    } catch (err) {
+      toast(err.message, true);
+    } finally { setLoading(false); }
+  };
 
   const onRegister = async (e) => {
     e.preventDefault();
+    setLoading(true);
     try {
-      await api("user/auth/register", { method: "POST", body: register });
-      setStatus("Registration successful. Redirecting...");
+      await api("user/auth/register", { method: "POST", body: reg });
+      toast("Account created! Redirecting…");
       router.replace("/");
     } catch (err) {
-      setStatus(err.message);
-    }
-  };
-  const onLogin = async (e) => {
-    e.preventDefault();
-    try {
-      await api("user/auth/login", { method: "POST", body: login });
-      setStatus("Login successful. Redirecting...");
-      router.replace("/");
-    } catch (err) {
-      setStatus(err.message);
-    }
+      toast(err.message, true);
+    } finally { setLoading(false); }
   };
 
   return (
-    <section className="auth-screen">
-      <article className="auth-card">
-        <div className="auth-brand">
-          <h1>Sports Community</h1>
-          <p className="muted">Find players, organize games, and manage teams and tournaments in one place.</p>
-        </div>
-        <div className="auth-single">
-          {mode === "login" ? (
-            <div className="card">
-              <h2>Login</h2>
-              <form onSubmit={onLogin} className="stack">
-                <input placeholder="Email" type="email" value={login.email} onChange={(e) => setLogin({ ...login, email: e.target.value })} required />
-                <input placeholder="Password" type="password" value={login.password} onChange={(e) => setLogin({ ...login, password: e.target.value })} required />
-                <button type="submit">Login</button>
-              </form>
-              <p className="muted auth-switch">
-                Dont have an account?{" "}
-                <button type="button" className="text-btn" onClick={() => setMode("register")}>
-                  register here
-                </button>
-              </p>
+    <div className="auth-outer">
+      {/* LEFT PANEL */}
+      <div className="auth-left">
+        <div className="auth-hero-icon">⚡</div>
+        <h1 className="auth-hero-title">Your Sports<br />Command Center</h1>
+        <p className="auth-hero-desc">
+          Connect with players, build teams, run tournaments, and book grounds —
+          all in one premium platform built for serious athletes.
+        </p>
+        <div className="auth-features">
+          {FEATURES.map((f) => (
+            <div className="auth-feature" key={f}>
+              <div className="auth-feature-dot" />
+              <span>{f}</span>
             </div>
+          ))}
+        </div>
+      </div>
+
+      {/* RIGHT PANEL */}
+      <div className="auth-right">
+        <div className="auth-box fade-up">
+          <h2 className="auth-box-title">
+            {tab === "login" ? "Welcome back" : "Create account"}
+          </h2>
+          <p className="auth-box-sub">
+            {tab === "login"
+              ? "Sign in to access your dashboard."
+              : "Join thousands of athletes on SportsHub."}
+          </p>
+
+          {/* TABS */}
+          <div className="auth-tab-row">
+            <button
+              className={`auth-tab${tab === "login" ? " active" : ""}`}
+              onClick={() => { setTab("login"); setStatus(""); }}
+            >Sign In</button>
+            <button
+              className={`auth-tab${tab === "register" ? " active" : ""}`}
+              onClick={() => { setTab("register"); setStatus(""); }}
+            >Register</button>
+          </div>
+
+          {tab === "login" ? (
+            <form className="form-stack" onSubmit={onLogin}>
+              <label>
+                Email Address
+                <input
+                  type="email"
+                  placeholder="you@example.com"
+                  value={login.email}
+                  onChange={(e) => setLogin({ ...login, email: e.target.value })}
+                  required
+                />
+              </label>
+              <label>
+                Password
+                <input
+                  type="password"
+                  placeholder="Enter your password"
+                  value={login.password}
+                  onChange={(e) => setLogin({ ...login, password: e.target.value })}
+                  required
+                />
+              </label>
+              <button
+                type="submit"
+                className="btn btn-primary btn-full"
+                style={{ marginTop: 4 }}
+                disabled={loading}
+              >
+                {loading ? "Signing in…" : "Sign In →"}
+              </button>
+            </form>
           ) : (
-            <div className="card">
-              <h2>Register</h2>
-              <form onSubmit={onRegister} className="stack">
-                <input placeholder="Full Name" value={register.fullName} onChange={(e) => setRegister({ ...register, fullName: e.target.value })} required />
-                <input placeholder="Email" type="email" value={register.email} onChange={(e) => setRegister({ ...register, email: e.target.value })} required />
-                <input placeholder="Password" type="password" value={register.password} onChange={(e) => setRegister({ ...register, password: e.target.value })} required />
-                <button type="submit">Create Account</button>
-              </form>
-              <p className="muted auth-switch">
-                Already have an account?{" "}
-                <button type="button" className="text-btn" onClick={() => setMode("login")}>
-                  login here
-                </button>
-              </p>
-            </div>
+            <form className="form-stack" onSubmit={onRegister}>
+              <label>
+                Full Name
+                <input
+                  placeholder="John Doe"
+                  value={reg.fullName}
+                  onChange={(e) => setReg({ ...reg, fullName: e.target.value })}
+                  required
+                />
+              </label>
+              <label>
+                Email Address
+                <input
+                  type="email"
+                  placeholder="you@example.com"
+                  value={reg.email}
+                  onChange={(e) => setReg({ ...reg, email: e.target.value })}
+                  required
+                />
+              </label>
+              <label>
+                Password
+                <input
+                  type="password"
+                  placeholder="Choose a strong password"
+                  value={reg.password}
+                  onChange={(e) => setReg({ ...reg, password: e.target.value })}
+                  required
+                />
+              </label>
+              <button
+                type="submit"
+                className="btn btn-green btn-full"
+                style={{ marginTop: 4 }}
+                disabled={loading}
+              >
+                {loading ? "Creating account…" : "Create Account →"}
+              </button>
+            </form>
           )}
+
+          {status && (
+            <p className={`status-bar mt-4${isErr ? " error" : ""}`}>{status}</p>
+          )}
+
+          <p className="text-muted text-sm mt-4" style={{ textAlign: "center" }}>
+            {tab === "login" ? "Don't have an account? " : "Already have an account? "}
+            <button
+              style={{ background: "none", border: "none", color: "var(--accent)", fontWeight: 700, cursor: "pointer", fontSize: 13 }}
+              onClick={() => { setTab(tab === "login" ? "register" : "login"); setStatus(""); }}
+            >
+              {tab === "login" ? "Register here" : "Sign in"}
+            </button>
+          </p>
         </div>
-        <p className="muted">{status}</p>
-      </article>
-    </section>
+      </div>
+    </div>
   );
 }

@@ -2,61 +2,175 @@
 import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
 
+const SPORTS = ["Football", "Cricket", "Basketball", "Badminton", "Tennis", "Volleyball"];
+
 export default function MatchesPage() {
   const [matches, setMatches] = useState([]);
-  const [form, setForm] = useState({ title: "", sport: "", location: "", totalSlots: "", startsAt: "" });
-  const [join, setJoin] = useState({ matchId: "", userId: "" });
-  const [status, setStatus] = useState("");
+  const [form, setForm]       = useState({ title: "", sport: "", location: "", totalSlots: "", startsAt: "" });
+  const [joinId, setJoinId]   = useState("");
+  const [status, setStatus]   = useState({ msg: "", err: false });
+  const [tab, setTab]         = useState("list");
+
+  const toast = (msg, err = false) => setStatus({ msg, err });
 
   const load = async () => {
-    try { setMatches(await api("player/matches")); } catch (err) { setStatus(err.message); }
+    try { setMatches(await api("player/matches")); }
+    catch (e) { toast(e.message, true); }
   };
+
   useEffect(() => { load(); }, []);
 
   const createMatch = async (e) => {
     e.preventDefault();
-    try { await api("player/matches", { method: "POST", body: form }); setStatus("Match created"); await load(); } catch (err) { setStatus(err.message); }
+    try {
+      await api("player/matches", { method: "POST", body: { ...form, totalSlots: Number(form.totalSlots) } });
+      toast("Match created successfully!");
+      setForm({ title: "", sport: "", location: "", totalSlots: "", startsAt: "" });
+      setTab("list");
+      load();
+    } catch (e) { toast(e.message, true); }
   };
 
-  const joinMatch = async (e) => {
-    e.preventDefault();
-    try { await api(`player/matches/${join.matchId}/join`, { method: "POST", body: { userId: join.userId } }); setStatus("Join request sent"); } catch (err) { setStatus(err.message); }
+  const joinMatch = async () => {
+    if (!joinId.trim()) return;
+    try {
+      await api(`player/matches/${joinId}/join`, { method: "POST", body: {} });
+      toast("Join request sent!");
+      setJoinId("");
+    } catch (e) { toast(e.message, true); }
   };
 
   return (
-    <section className="module-page">
-      <div className="card">
-        <h1>Match Center</h1>
-        <p className="muted">Create games, join open slots, and track upcoming schedules.</p>
+    <>
+      <div className="page-header fade-up">
+        <h1 className="page-title">⚽ Match Center</h1>
+        <p className="page-subtitle">Create games, discover open slots and track upcoming schedules.</p>
       </div>
-      <article className="card">
-        <h2>Create Match</h2>
-        <form onSubmit={createMatch} className="form-grid">
-          <input placeholder="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
-          <input placeholder="Sport" value={form.sport} onChange={(e) => setForm({ ...form, sport: e.target.value })} required />
-          <input placeholder="Location" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} required />
-          <input type="number" placeholder="Total Slots" value={form.totalSlots} onChange={(e) => setForm({ ...form, totalSlots: Number(e.target.value) || "" })} required />
-          <input type="datetime-local" value={form.startsAt} onChange={(e) => setForm({ ...form, startsAt: e.target.value })} required />
-          <button type="submit">Create</button>
-        </form>
-      </article>
 
-      <article className="card">
-        <h2>Join Match</h2>
-        <form onSubmit={joinMatch} className="stack">
-          <input placeholder="Match ID" value={join.matchId} onChange={(e) => setJoin({ ...join, matchId: e.target.value })} required />
-          <input placeholder="User ID" value={join.userId} onChange={(e) => setJoin({ ...join, userId: e.target.value })} required />
-          <button type="submit">Join</button>
-        </form>
-      </article>
-
-      <article className="card">
-        <h2>Upcoming Matches</h2>
-        <div className="list-grid">
-          {matches.map((m) => <div className="card" key={m._id}><h3>{m.title}</h3><p className="muted">{m.sport} | {m.location}</p><p className="muted">ID: {m._id}</p></div>)}
+      <div className="page-body">
+        {/* TAB BAR */}
+        <div className="flex gap-2 mb-6 fade-up-2">
+          {["list", "create", "join"].map((t) => (
+            <button
+              key={t}
+              className={`btn btn-sm ${tab === t ? "btn-primary" : "btn-outline"}`}
+              onClick={() => setTab(t)}
+            >
+              {{ list: "📋 Matches", create: "➕ Create", join: "🔗 Join" }[t]}
+            </button>
+          ))}
         </div>
-        <p className="muted">{status}</p>
-      </article>
-    </section>
+
+        {status.msg && (
+          <p className={`status-bar mb-4${status.err ? " error" : ""}`}>{status.msg}</p>
+        )}
+
+        {/* LIST */}
+        {tab === "list" && (
+          <div className="fade-up-2">
+            {matches.length === 0 ? (
+              <div className="card" style={{ textAlign: "center", padding: "48px" }}>
+                <div style={{ fontSize: 48, marginBottom: 12 }}>⚽</div>
+                <p className="font-bold">No matches yet</p>
+                <p className="text-muted text-sm mt-2">Be the first to create a match!</p>
+                <button className="btn btn-primary mt-4" onClick={() => setTab("create")}>
+                  Create Match →
+                </button>
+              </div>
+            ) : (
+              <div className="item-grid">
+                {matches.map((m) => (
+                  <div className="item-card" key={m._id}>
+                    <div className="flex-between mb-4" style={{ alignItems: "flex-start" }}>
+                      <div>
+                        <div className="item-card-title">{m.title}</div>
+                        <div className="item-card-meta">
+                          <span>📍 {m.location}</span>
+                          <span>🗓 {m.startsAt ? new Date(m.startsAt).toLocaleString() : "TBD"}</span>
+                        </div>
+                      </div>
+                      <span className="badge badge-blue">{m.sport}</span>
+                    </div>
+                    <div className="item-card-footer">
+                      <span className="text-muted text-xs">
+                        {m.totalSlots} slots
+                      </span>
+                      <button
+                        className="btn btn-sm btn-outline"
+                        onClick={() => { setJoinId(m._id); setTab("join"); }}
+                      >
+                        Join →
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* CREATE */}
+        {tab === "create" && (
+          <div className="card fade-up-2" style={{ maxWidth: 640 }}>
+            <div className="card-header">
+              <span className="card-title">New Match</span>
+              <div className="card-icon" style={{ background: "rgba(79,140,255,0.15)" }}>⚽</div>
+            </div>
+            <form className="form-stack" onSubmit={createMatch}>
+              <label>
+                Match Title
+                <input placeholder="e.g. Sunday 5-a-side" value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })} required />
+              </label>
+              <div className="form-row">
+                <label>
+                  Sport
+                  <select value={form.sport} onChange={(e) => setForm({ ...form, sport: e.target.value })} required>
+                    <option value="">Select sport</option>
+                    {SPORTS.map((s) => <option key={s}>{s}</option>)}
+                  </select>
+                </label>
+                <label>
+                  Total Slots
+                  <input type="number" placeholder="10" min="2" value={form.totalSlots}
+                    onChange={(e) => setForm({ ...form, totalSlots: e.target.value })} required />
+                </label>
+              </div>
+              <label>
+                Location
+                <input placeholder="Ground name or address" value={form.location}
+                  onChange={(e) => setForm({ ...form, location: e.target.value })} required />
+              </label>
+              <label>
+                Date & Time
+                <input type="datetime-local" value={form.startsAt}
+                  onChange={(e) => setForm({ ...form, startsAt: e.target.value })} required />
+              </label>
+              <button type="submit" className="btn btn-primary" style={{ marginTop: 4 }}>
+                Create Match →
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* JOIN */}
+        {tab === "join" && (
+          <div className="card fade-up-2" style={{ maxWidth: 480 }}>
+            <div className="card-header">
+              <span className="card-title">Join a Match</span>
+              <div className="card-icon" style={{ background: "rgba(0,229,160,0.12)" }}>🔗</div>
+            </div>
+            <div className="form-stack">
+              <label>
+                Match ID
+                <input placeholder="Paste match ID here" value={joinId}
+                  onChange={(e) => setJoinId(e.target.value)} />
+              </label>
+              <button className="btn btn-green" onClick={joinMatch}>Send Join Request →</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   );
 }

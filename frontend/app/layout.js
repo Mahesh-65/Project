@@ -4,7 +4,10 @@ import { Manrope } from "next/font/google";
 
 const manrope = Manrope({ subsets: ["latin"] });
 
-export const metadata = { title: "Sports Community", description: "Find players, teams, tournaments, grounds, and gear." };
+export const metadata = {
+  title: "SportsHub — Your Sports Command Center",
+  description: "Find players, build teams, run tournaments, book grounds and shop gear — all in one premium platform.",
+};
 
 export default function RootLayout({ children }) {
   return (
