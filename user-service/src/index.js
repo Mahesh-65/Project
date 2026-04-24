@@ -53,21 +53,31 @@ app.patch("/notifications/read-all", authRequired, async (req, res) => {
 
 app.post("/auth/register", async (req, res) => {
   try {
-    const { email, password, fullName } = req.body;
-    if (!email || !password || !fullName) return res.status(400).json({ message: "Missing required fields" });
-    const exists = await users.findOne({ email });
-    if (exists) return res.status(409).json({ message: "Email already exists" });
+    const { email, password, fullName, username, gender, age, interestedSports } = req.body;
+    if (!email || !password || !fullName || !username) return res.status(400).json({ message: "Missing required fields" });
+    
+    const emailExists = await users.findOne({ email });
+    if (emailExists) return res.status(409).json({ message: "Email already exists" });
+    
+    const userExists = await users.findOne({ username });
+    if (userExists) return res.status(409).json({ message: "Username already taken" });
+
     const passwordHash = await bcrypt.hash(password, 10);
     const doc = {
-      email, passwordHash, fullName,
+      email, username, passwordHash, fullName, gender, 
+      age: Number(age) || null,
       role: "user",
-      city: "", preferredSports: [], bio: "", skillLevel: "beginner",
-      availability: [], notificationPreferences: { email: true, push: true },
+      city: "", 
+      preferredSports: interestedSports || [], 
+      bio: "", 
+      skillLevel: "beginner",
+      availability: [], 
+      notificationPreferences: { email: true, push: true },
       createdAt: new Date()
     };
     const result = await users.insertOne(doc);
     req.session.userId = result.insertedId.toString();
-    res.status(201).json({ id: req.session.userId, email, fullName: doc.fullName, role: doc.role });
+    res.status(201).json({ id: req.session.userId, email, username, fullName: doc.fullName, role: doc.role });
   } catch (error) {
     res.status(400).json({ message: "Registration failed", error: error.message });
   }
@@ -121,6 +131,7 @@ mongoClient.connect().then(() => {
   users = db.collection("users");
   notifications = db.collection("notifications");
   users.createIndex({ email: 1 }, { unique: true }).catch(() => {});
+  users.createIndex({ username: 1 }, { unique: true }).catch(() => {});
   notifications.createIndex({ userId: 1, createdAt: -1 }).catch(() => {});
   app.listen(PORT, () => console.log(`user-service running on ${PORT}`));
 }).catch(console.error);

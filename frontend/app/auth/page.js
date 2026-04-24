@@ -10,11 +10,13 @@ const FEATURES = [
   "Track stats & performance",
 ];
 
+const GAMES = ["Football", "Cricket", "Basketball", "Badminton", "Tennis", "Volleyball"];
+
 export default function AuthPage() {
   const router  = useRouter();
   const [tab,    setTab]    = useState("login");
   const [login,  setLogin]  = useState({ email: "", password: "" });
-  const [reg,    setReg]    = useState({ fullName: "", email: "", password: "" });
+  const [reg,    setReg]    = useState({ fullName: "", email: "", password: "", username: "", gender: "", age: "", interestedSports: [] });
   const [status, setStatus] = useState("");
   const [isErr,  setIsErr]  = useState(false);
   const [loading, setLoading] = useState(false);
@@ -122,15 +124,26 @@ export default function AuthPage() {
             </form>
           ) : (
             <form className="form-stack" onSubmit={onRegister}>
-              <label>
-                Full Name
-                <input
-                  placeholder="John Doe"
-                  value={reg.fullName}
-                  onChange={(e) => setReg({ ...reg, fullName: e.target.value })}
-                  required
-                />
-              </label>
+              <div className="form-row">
+                <label>
+                  Full Name
+                  <input
+                    placeholder="John Doe"
+                    value={reg.fullName}
+                    onChange={(e) => setReg({ ...reg, fullName: e.target.value })}
+                    required
+                  />
+                </label>
+                <label>
+                  Username
+                  <input
+                    placeholder="johndoe123"
+                    value={reg.username}
+                    onChange={(e) => setReg({ ...reg, username: e.target.value })}
+                    required
+                  />
+                </label>
+              </div>
               <label>
                 Email Address
                 <input
@@ -140,6 +153,45 @@ export default function AuthPage() {
                   onChange={(e) => setReg({ ...reg, email: e.target.value })}
                   required
                 />
+              </label>
+              <div className="form-row">
+                <label>
+                  Gender
+                  <select value={reg.gender} onChange={(e) => setReg({ ...reg, gender: e.target.value })} required>
+                    <option value="">Select</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </label>
+                <label>
+                  Age
+                  <input
+                    type="number"
+                    placeholder="25"
+                    value={reg.age}
+                    onChange={(e) => setReg({ ...reg, age: e.target.value })}
+                    required
+                  />
+                </label>
+              </div>
+              <label>
+                Interested Games
+                <div className="flex gap-2 mt-1" style={{ flexWrap: "wrap" }}>
+                  {GAMES.map(g => (
+                    <button 
+                      key={g} 
+                      type="button"
+                      className={`btn btn-xs ${reg.interestedSports.includes(g) ? 'btn-primary' : 'btn-outline'}`}
+                      onClick={() => {
+                        const sports = reg.interestedSports.includes(g) 
+                          ? reg.interestedSports.filter(s => s !== g) 
+                          : [...reg.interestedSports, g];
+                        setReg({ ...reg, interestedSports: sports });
+                      }}
+                    >{g}</button>
+                  ))}
+                </div>
               </label>
               <label>
                 Password
