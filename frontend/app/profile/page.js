@@ -74,6 +74,10 @@ export default function ProfilePage() {
     api("user/users/me")
       .then(setUser)
       .catch(() => (window.location.href = "/auth"));
+
+    const params = new URLSearchParams(window.location.search);
+    const t = params.get("tab");
+    if (t && TABS.some(x => x.id === t)) setTab(t);
   }, []);
 
   useEffect(() => {

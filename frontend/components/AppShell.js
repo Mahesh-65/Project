@@ -11,6 +11,7 @@ const NAV = [
   { label: "Grounds",     href: "/grounds",      icon: "📍" },
   { label: "LFP (Urgent)",  href: "/lfp",          icon: "🔥" },
   { label: "Shop",        href: "/shop",         icon: "🛒" },
+  { label: "Notifications", href: "/profile?tab=notifications", icon: "🔔" },
   { label: "My Profile",  href: "/profile",      icon: "👤" },
 ];
 
@@ -18,6 +19,7 @@ export default function AppShell({ children }) {
   const pathname = usePathname();
   const router   = useRouter();
   const [user,     setUser]     = useState(null);
+  const [unread,   setUnread]   = useState(0);
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
@@ -38,6 +40,18 @@ export default function AppShell({ children }) {
       });
     return () => { alive = false; };
   }, [pathname, router]);
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchUnread = () => {
+      api("user/notifications")
+        .then((list) => setUnread(list.filter((n) => !n.read).length))
+        .catch(() => {});
+    };
+    fetchUnread();
+    const timer = setInterval(fetchUnread, 30000);
+    return () => clearInterval(timer);
+  }, [user, pathname]);
 
   const logout = async () => {
     await api("user/auth/logout", { method: "POST" }).catch(() => {});
@@ -81,10 +95,13 @@ export default function AppShell({ children }) {
             <a
               key={href}
               href={href}
-              className={`nav-link${pathname === href ? " active" : ""}`}
+              className={`nav-link${pathname === href || (href.includes('tab=notifications') && pathname === '/profile') ? " active" : ""}`}
             >
               <span className="nav-icon">{icon}</span>
               {label}
+              {label === "Notifications" && unread > 0 && (
+                <span className="nav-badge">{unread}</span>
+              )}
             </a>
           ))}
 

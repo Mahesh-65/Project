@@ -1,12 +1,13 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
 
 export default function TeamsPage() {
-  const [tab,    setTab]    = useState("create");
+  const [tab,    setTab]    = useState("browse");
   const [create, setCreate] = useState({ name: "", captainId: "" });
   const [join,   setJoin]   = useState({ inviteCode: "", userId: "" });
   const [team,   setTeam]   = useState(null);
+  const [list,   setList]   = useState([]);
   const [status, setStatus] = useState({ msg: "", err: false });
 
   const toast = (msg, err = false) => setStatus({ msg, err });
@@ -16,12 +17,26 @@ export default function TeamsPage() {
     catch (e) { console.error("Notify failed", e); }
   };
 
+  const load = async () => {
+    try { setList(await api("team/teams")); }
+    catch (e) { toast(e.message, true); }
+  };
+
+  useEffect(() => {
+    load();
+    api("user/users/me").then((me) => {
+      setCreate(c => ({ ...c, captainId: me._id }));
+      setJoin(j => ({ ...j, userId: me._id }));
+    }).catch(() => {});
+  }, []);
+
   const createTeam = async (e) => {
     e.preventDefault();
     try {
       const t = await api("team/teams", { method: "POST", body: create });
       setTeam(t);
       toast("Team created! Share the invite code with your squad.");
+      load();
     } catch (err) { toast(err.message, true); }
   };
 
@@ -49,13 +64,13 @@ export default function TeamsPage() {
       <div className="page-body">
         {/* TABS */}
         <div className="flex gap-2 mb-6 fade-up-2">
-          {["create", "join"].map((t) => (
+          {["browse", "create", "join"].map((t) => (
             <button
               key={t}
               className={`btn btn-sm ${tab === t ? "btn-primary" : "btn-outline"}`}
               onClick={() => setTab(t)}
             >
-              {{ create: "➕ Create Team", join: "🔗 Join Team" }[t]}
+              {{ browse: "📋 Browse Teams", create: "➕ Create Team", join: "🔗 Join Team" }[t]}
             </button>
           ))}
         </div>
@@ -64,9 +79,52 @@ export default function TeamsPage() {
           <p className={`status-bar mb-4${status.err ? " error" : ""}`}>{status.msg}</p>
         )}
 
-        <div style={{ display: "grid", gap: 20, gridTemplateColumns: "1fr 1fr", maxWidth: 900 }}>
+        <div style={{ display: "grid", gap: 20, gridTemplateColumns: tab === "browse" ? "1fr" : "1fr 1fr", maxWidth: 900 }}>
+          {/* LIST */}
+          {tab === "browse" && (
+            <div className="fade-up-2">
+              {list.length === 0 ? (
+                <div className="card" style={{ textAlign: "center", padding: "48px" }}>
+                  <div style={{ fontSize: 48, marginBottom: 12 }}>🛡️</div>
+                  <p className="font-bold">No teams yet</p>
+                  <p className="text-muted text-sm mt-2">Create your own team and start recruiting!</p>
+                  <button className="btn btn-primary mt-4" onClick={() => setTab("create")}>
+                    Create Team →
+                  </button>
+                </div>
+              ) : (
+                <div className="item-grid">
+                  {list.map((t) => (
+                    <div className="item-card" key={t._id}>
+                      <div className="flex-between mb-4">
+                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                          <div style={{
+                            width: 44, height: 44, borderRadius: 12,
+                            background: "rgba(168,85,247,0.12)",
+                            display: "grid", placeItems: "center", fontSize: 22
+                          }}>🛡️</div>
+                          <div>
+                            <div className="item-card-title">{t.name}</div>
+                            <div className="text-muted text-xs">{t.members?.length || 0} Members</div>
+                          </div>
+                        </div>
+                        <span className="badge badge-purple">{t.wins}W - {t.losses}L</span>
+                      </div>
+                      <div className="item-card-footer">
+                        <button className="btn btn-sm btn-outline" onClick={() => {
+                          setJoin({ ...join, inviteCode: t.inviteCode });
+                          setTab("join");
+                        }}>Join Team →</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* FORM */}
-          {tab === "create" ? (
+          {tab === "create" && (
             <div className="card fade-up-2">
               <div className="card-header">
                 <span className="card-title">Create New Team</span>
@@ -88,7 +146,9 @@ export default function TeamsPage() {
                 </button>
               </form>
             </div>
-          ) : (
+          )}
+
+          {tab === "join" && (
             <div className="card fade-up-2">
               <div className="card-header">
                 <span className="card-title">Join a Team</span>

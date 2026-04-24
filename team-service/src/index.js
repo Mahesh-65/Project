@@ -14,6 +14,12 @@ let teams;
 
 app.get("/health", (_, res) => res.json({ ok: true, service: "team-service" }));
 
+// List all teams
+app.get("/teams", async (_, res) => {
+  const rows = await teams.find({}).sort({ createdAt: -1 }).toArray();
+  res.json(rows);
+});
+
 // Create team — captainId is the owner
 app.post("/teams", async (req, res) => {
   const { name, captainId } = req.body;

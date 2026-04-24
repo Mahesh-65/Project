@@ -34,13 +34,6 @@ const MODULES = [
     href: "/shop",
     color: "rgba(255,77,109,0.1)",
   },
-  {
-    emoji: "🔧",
-    title: "Admin Operations",
-    desc: "Platform health, moderation reports and growth metrics dashboard.",
-    href: "/admin",
-    color: "rgba(79,140,255,0.08)",
-  },
 ];
 
 const STATS = [

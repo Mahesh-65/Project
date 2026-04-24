@@ -166,6 +166,17 @@ body {
   flex-shrink: 0;
 }
 
+.nav-badge {
+  margin-left: auto;
+  background: var(--danger);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(255,77,109,0.4);
+}
+
 .sidebar-footer {
   padding: 16px 12px;
   border-top: 1px solid var(--border);
