@@ -19,7 +19,7 @@ services:
 
   user-service:
     build: ./user-service
-    image: gamesbond/user-service:v1.0.0
+    image: gamesbond-user-service:v1.0.0
     container_name: gamesbond-user-service
     restart: unless-stopped
     environment:
@@ -36,7 +36,7 @@ services:
 
   player-service:
     build: ./player-service
-    image: gamesbond/player-service:v1.0.0
+    image: gamesbond-player-service:v1.0.0
     container_name: gamesbond-player-service
     restart: unless-stopped
     environment:
@@ -51,7 +51,7 @@ services:
 
   team-service:
     build: ./team-service
-    image: gamesbond/team-service:v1.0.0
+    image: gamesbond-team-service:v1.0.0
     container_name: gamesbond-team-service
     restart: unless-stopped
     environment:
@@ -64,7 +64,7 @@ services:
 
   tournament-service:
     build: ./tournament-service
-    image: gamesbond/tournament-service:v1.0.0
+    image: gamesbond-tournament-service:v1.0.0
     container_name: gamesbond-tournament-service
     restart: unless-stopped
     environment:
@@ -77,7 +77,7 @@ services:
 
   ground-service:
     build: ./ground-service
-    image: gamesbond/ground-service:v1.0.0
+    image: gamesbond-ground-service:v1.0.0
     container_name: gamesbond-ground-service
     restart: unless-stopped
     environment:
@@ -90,7 +90,7 @@ services:
 
   shop-service:
     build: ./shop-service
-    image: gamesbond/shop-service:v1.0.0
+    image: gamesbond-shop-service:v1.0.0
     container_name: gamesbond-shop-service
     restart: unless-stopped
     environment:
@@ -103,7 +103,7 @@ services:
 
   admin-service:
     build: ./admin-service
-    image: gamesbond/admin-service:v1.0.0
+    image: gamesbond-admin-service:v1.0.0
     container_name: gamesbond-admin-service
     restart: unless-stopped
     environment:
@@ -116,7 +116,7 @@ services:
 
   frontend:
     build: ./frontend
-    image: gamesbond/frontend:v1.0.0
+    image: gamesbond-frontend:v1.0.0
     container_name: gamesbond-frontend
     restart: unless-stopped
     environment:
