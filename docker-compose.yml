@@ -3,6 +3,8 @@ version: "3.9"
 services:
   mongo:
     image: mongo:7
+    container_name: gamesbond-mongo
+    restart: unless-stopped
     ports:
       - "27017:27017"
     volumes:
@@ -10,71 +12,113 @@ services:
 
   redis:
     image: redis:7-alpine
+    container_name: gamesbond-redis
+    restart: unless-stopped
     ports:
       - "6379:6379"
 
   user-service:
     build: ./user-service
+    image: gamesbond/user-service:v1.0.0
+    container_name: gamesbond-user-service
+    restart: unless-stopped
     environment:
       PORT: 4001
       MONGO_URL: mongodb://mongo:27017
       REDIS_URL: redis://redis:6379
       SESSION_SECRET: "sports_hub_secret_123"
       JWT_SECRET: "sports_hub_jwt_secret_456"
-    depends_on: [mongo, redis]
-    ports: ["4001:4001"]
+    depends_on:
+      - mongo
+      - redis
+    ports:
+      - "4001:4001"
 
   player-service:
     build: ./player-service
+    image: gamesbond/player-service:v1.0.0
+    container_name: gamesbond-player-service
+    restart: unless-stopped
     environment:
       PORT: 4002
       MONGO_URL: mongodb://mongo:27017
       REDIS_URL: redis://redis:6379
-    depends_on: [mongo, redis]
-    ports: ["4002:4002"]
+    depends_on:
+      - mongo
+      - redis
+    ports:
+      - "4002:4002"
 
   team-service:
     build: ./team-service
+    image: gamesbond/team-service:v1.0.0
+    container_name: gamesbond-team-service
+    restart: unless-stopped
     environment:
       PORT: 4003
       MONGO_URL: mongodb://mongo:27017
-    depends_on: [mongo]
-    ports: ["4003:4003"]
+    depends_on:
+      - mongo
+    ports:
+      - "4003:4003"
 
   tournament-service:
     build: ./tournament-service
+    image: gamesbond/tournament-service:v1.0.0
+    container_name: gamesbond-tournament-service
+    restart: unless-stopped
     environment:
       PORT: 4004
       MONGO_URL: mongodb://mongo:27017
-    depends_on: [mongo]
-    ports: ["4004:4004"]
+    depends_on:
+      - mongo
+    ports:
+      - "4004:4004"
 
   ground-service:
     build: ./ground-service
+    image: gamesbond/ground-service:v1.0.0
+    container_name: gamesbond-ground-service
+    restart: unless-stopped
     environment:
       PORT: 4005
       MONGO_URL: mongodb://mongo:27017
-    depends_on: [mongo]
-    ports: ["4005:4005"]
+    depends_on:
+      - mongo
+    ports:
+      - "4005:4005"
 
   shop-service:
     build: ./shop-service
+    image: gamesbond/shop-service:v1.0.0
+    container_name: gamesbond-shop-service
+    restart: unless-stopped
     environment:
       PORT: 4006
       MONGO_URL: mongodb://mongo:27017
-    depends_on: [mongo]
-    ports: ["4006:4006"]
+    depends_on:
+      - mongo
+    ports:
+      - "4006:4006"
 
   admin-service:
     build: ./admin-service
+    image: gamesbond/admin-service:v1.0.0
+    container_name: gamesbond-admin-service
+    restart: unless-stopped
     environment:
       PORT: 4007
       MONGO_URL: mongodb://mongo:27017
-    depends_on: [mongo]
-    ports: ["4007:4007"]
+    depends_on:
+      - mongo
+    ports:
+      - "4007:4007"
 
   frontend:
     build: ./frontend
+    image: gamesbond/frontend:v1.0.0
+    container_name: gamesbond-frontend
+    restart: unless-stopped
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:4000
       NODE_ENV: production
