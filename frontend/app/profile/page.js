@@ -41,6 +41,7 @@ const TABS = [
   { id: "my-teams",      label: "My Teams",         icon: "🛡️" },
   { id: "my-tournaments",label: "My Tournaments",   icon: "🏆" },
   { id: "my-bookings",   label: "My Bookings",      icon: "📍" },
+  { id: "my-lfp",        label: "My LFP Requests",  icon: "📣" },
   { id: "my-orders",     label: "My Orders",        icon: "🛒" },
 ];
 
@@ -55,6 +56,7 @@ export default function ProfilePage() {
   const [joinedTours,   setJoinedTours]   = useState([]);
   const [myBookings,    setMyBookings]    = useState([]);
   const [myOrders,      setMyOrders]      = useState([]);
+  const [myLFP,         setMyLFP]         = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [requests,      setRequests]      = useState({}); // matchId -> requests[]
   const [tourRegs,      setTourRegs]      = useState({}); // tournamentId -> regs[]
@@ -87,6 +89,7 @@ export default function ProfilePage() {
       api(`tournament/tournaments/joined?userId=${id}`).then(setJoinedTours).catch(() => {}),
       api(`ground/bookings/mine?userId=${id}`).then(setMyBookings).catch(() => {}),
       api(`shop/orders/mine?userId=${id}`).then(setMyOrders).catch(() => {}),
+      api(`player/lfp`).then(data => setMyLFP(data.filter(x => x.createdBy === id))).catch(() => {}),
       api(`user/notifications`).then(setNotifications).catch(() => {}),
     ]).finally(() => setLoading(false));
   }, [user]);
@@ -136,6 +139,14 @@ export default function ProfilePage() {
       const updatedTeams = await api(`team/teams/mine?userId=${user._id}`);
       setMyTeams(updatedTeams);
       await notify(userId, `Team Update`, `Your request to join team ${teamId.slice(-4)} was ${action}d.`, action === "approve" ? "success" : "warning");
+    } catch (e) { toast(e.message, true); }
+  };
+
+  const fillLFP = async (id) => {
+    try {
+      await api(`player/lfp/${id}/fill`, { method: "PATCH" });
+      toast("Request marked as filled.");
+      setMyLFP(p => p.map(x => x._id === id ? { ...x, status: "filled" } : x));
     } catch (e) { toast(e.message, true); }
   };
 
@@ -573,6 +584,42 @@ export default function ProfilePage() {
                   )}
                 </div>
               ))
+            }
+          </div>
+        )}
+
+        {/* ── MY LFP ── */}
+        {tab === "my-lfp" && (
+          <div>
+            <p className="section-title">My Last-Minute Requests ({myLFP.length})</p>
+            {myLFP.length === 0
+              ? <EmptyState icon="📣" text="No LFP requests posted." action="/lfp" actionLabel="Post LFP" />
+              : (
+                <div className="item-grid">
+                  {myLFP.map((item) => (
+                    <div className="item-card" key={item._id}>
+                      <div className="flex-between mb-2">
+                        <span className={`badge ${item.status === 'active' ? 'badge-red' : 'badge-green'}`}>
+                          {item.status.toUpperCase()}
+                        </span>
+                        <span className="text-muted text-xs">{item.startsIn}</span>
+                      </div>
+                      <div className="item-card-title">{item.title}</div>
+                      <div className="item-card-meta">
+                        <span>🎮 {item.sport}</span>
+                        <span>📍 {item.location}</span>
+                      </div>
+                      {item.status === "active" && (
+                        <div className="item-card-footer mt-4">
+                          <button className="btn btn-sm btn-outline btn-full" onClick={() => fillLFP(item._id)}>
+                            Mark as Filled ✓
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )
             }
           </div>
         )}

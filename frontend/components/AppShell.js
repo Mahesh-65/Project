@@ -9,6 +9,7 @@ const NAV = [
   { label: "Teams",       href: "/teams",        icon: "🛡️" },
   { label: "Tournaments", href: "/tournaments",  icon: "🏆" },
   { label: "Grounds",     href: "/grounds",      icon: "📍" },
+  { label: "LFP (Urgent)",  href: "/lfp",          icon: "🔥" },
   { label: "Shop",        href: "/shop",         icon: "🛒" },
   { label: "My Profile",  href: "/profile",      icon: "👤" },
 ];

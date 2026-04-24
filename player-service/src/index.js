@@ -14,7 +14,7 @@ const redis = createClient({ url: process.env.REDIS_URL || "redis://redis:6379" 
 redis.connect().catch(console.error);
 
 const mongo = new MongoClient(process.env.MONGO_URL || "mongodb://mongo:27017");
-let matches, events;
+let matches, events, lfp;
 
 app.get("/health", (_, res) => res.json({ ok: true, service: "player-service" }));
 
@@ -105,11 +105,40 @@ app.post("/matches/:id/chat", async (req, res) => {
   res.status(201).json({ message: "Sent" });
 });
 
+// ── LFP (LOOKING FOR PLAYERS) ─────────────────────────
+
+app.post("/lfp", async (req, res) => {
+  const { title, sport, location, playersNeeded, startsIn, createdBy } = req.body;
+  if (!title || !sport || !createdBy) return res.status(400).json({ message: "Missing required fields" });
+  const doc = {
+    title, sport, location: location || "TBD",
+    playersNeeded: Number(playersNeeded) || 1,
+    startsIn: startsIn || "ASAP",
+    createdBy,
+    createdAt: new Date(),
+    status: "active"
+  };
+  const r = await lfp.insertOne(doc);
+  res.status(201).json({ _id: r.insertedId, ...doc });
+});
+
+app.get("/lfp", async (_, res) => {
+  const rows = await lfp.find({ status: "active" }).sort({ createdAt: -1 }).toArray();
+  res.json(rows);
+});
+
+app.patch("/lfp/:id/fill", async (req, res) => {
+  await lfp.updateOne({ _id: new ObjectId(req.params.id) }, { $set: { status: "filled", updatedAt: new Date() } });
+  res.json({ message: "Marked as filled" });
+});
+
 mongo.connect().then(() => {
   const db = mongo.db("player_db");
   matches = db.collection("matches");
   events  = db.collection("events");
+  lfp     = db.collection("lfp");
   matches.createIndex({ createdBy: 1 }).catch(() => {});
   events.createIndex({ matchId: 1, userId: 1, type: 1 }).catch(() => {});
+  lfp.createIndex({ createdAt: -1 }).catch(() => {});
   app.listen(PORT, () => console.log(`player-service running on ${PORT}`));
 }).catch(console.error);
