@@ -25,11 +25,9 @@ Production-ready starter monorepo for a sports community application with 7 micr
 
 ## Quick Start
 
-1. Copy environment files:
-   - `cp .env.example .env` (or duplicate manually on Windows)
-2. Start full stack:
+1. Start full stack:
    - `docker compose up --build`
-3. Open:
+2. Open:
    - Frontend: `http://localhost:3000`
    - Services: ports `4001-4007`
 
