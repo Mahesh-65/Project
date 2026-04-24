@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ground-service-config
+data:
+  PORT: "4005"
+  MONGO_URL: "mongodb://mongo-service:27017/ground_db"

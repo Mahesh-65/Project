@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tournament-service-config
+data:
+  PORT: "4004"
+  MONGO_URL: "mongodb://mongo-service:27017/tournament_db"

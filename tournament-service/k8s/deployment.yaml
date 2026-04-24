@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tournament-service
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: tournament-service
+  template:
+    metadata:
+      labels:
+        app: tournament-service
+    spec:
+      containers:
+      - name: tournament-service
+        image: gamesbond-tournament-service:v1.0.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 4004
+        envFrom:
+        - configMapRef:
+            name: tournament-service-config
+        - secretRef:
+            name: tournament-service-secret
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "300m"
+            memory: "256Mi"
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1001
+          allowPrivilegeEscalation: false
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 4004
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 4004
+          initialDelaySeconds: 15
+          periodSeconds: 20
