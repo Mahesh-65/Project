@@ -1,0 +1,8 @@
+# System Requirements for Sports Community Platform
+# This is a Node.js project. For dependencies, see package.json in each service.
+
+Docker>=24.0.0
+Docker-Compose>=2.20.0
+Node.js>=20.0.0
+MongoDB>=7.0.0
+Redis>=7.0.0
