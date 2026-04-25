@@ -19,13 +19,13 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: gamesbond-frontend:v1.0.0
+        image: maheshnandi/gamesbond-frontend:v1.0.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3000
         envFrom:
         - configMapRef:
-            name: frontend-config
+            name: frontend-devconfig
         - secretRef:
             name: frontend-secret
         resources:

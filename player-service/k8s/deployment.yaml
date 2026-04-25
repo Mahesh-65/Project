@@ -19,13 +19,13 @@ spec:
     spec:
       containers:
       - name: player-service
-        image: gamesbond-player-service:v1.0.0
+        image: maheshnandi/gamesbond-player-service:v1.0.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 4002
         envFrom:
         - configMapRef:
-            name: player-service-config
+            name: player-service-devconfig
         - secretRef:
             name: player-service-secret
         resources:
@@ -41,13 +41,13 @@ spec:
           allowPrivilegeEscalation: false
         readinessProbe:
           httpGet:
-            path: /
+            path: /health
             port: 4002
           initialDelaySeconds: 5
           periodSeconds: 10
         livenessProbe:
           httpGet:
-            path: /
+            path: /health
             port: 4002
           initialDelaySeconds: 15
           periodSeconds: 20

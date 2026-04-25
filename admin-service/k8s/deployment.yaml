@@ -19,13 +19,13 @@ spec:
     spec:
       containers:
       - name: admin-service
-        image: gamesbond-admin-service:v1.0.0
+        image: maheshnandi/gamesbond-admin-service:v1.0.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 4007
         envFrom:
         - configMapRef:
-            name: admin-service-config
+            name: admin-service-devconfig
         - secretRef:
             name: admin-service-secret
         resources:
@@ -41,13 +41,13 @@ spec:
           allowPrivilegeEscalation: false
         readinessProbe:
           httpGet:
-            path: /
+            path: /health
             port: 4007
           initialDelaySeconds: 5
           periodSeconds: 10
         livenessProbe:
           httpGet:
-            path: /
+            path: /health
             port: 4007
           initialDelaySeconds: 15
           periodSeconds: 20

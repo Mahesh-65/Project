@@ -19,13 +19,13 @@ spec:
     spec:
       containers:
       - name: team-service
-        image: gamesbond-team-service:v1.0.0
+        image: maheshnandi/gamesbond-team-service:v1.0.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 4003
         envFrom:
         - configMapRef:
-            name: team-service-config
+            name: team-service-devconfig
         - secretRef:
             name: team-service-secret
         resources:
@@ -41,13 +41,13 @@ spec:
           allowPrivilegeEscalation: false
         readinessProbe:
           httpGet:
-            path: /
+            path: /health
             port: 4003
           initialDelaySeconds: 5
           periodSeconds: 10
         livenessProbe:
           httpGet:
-            path: /
+            path: /health
             port: 4003
           initialDelaySeconds: 15
           periodSeconds: 20

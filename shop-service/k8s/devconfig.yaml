@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: shop-service-config
+  name: shop-service-devconfig
 data:
   PORT: "4006"
-  MONGO_URL: "mongodb://mongo-service:27017/shop_db"
+  MONGO_URL: "mongodb://mongo:27017"

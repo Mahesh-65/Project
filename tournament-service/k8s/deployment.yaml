@@ -19,13 +19,13 @@ spec:
     spec:
       containers:
       - name: tournament-service
-        image: gamesbond-tournament-service:v1.0.0
+        image: maheshnandi/gamesbond-tournament-service:v1.0.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 4004
         envFrom:
         - configMapRef:
-            name: tournament-service-config
+            name: tournament-service-devconfig
         - secretRef:
             name: tournament-service-secret
         resources:
@@ -41,13 +41,13 @@ spec:
           allowPrivilegeEscalation: false
         readinessProbe:
           httpGet:
-            path: /
+            path: /health
             port: 4004
           initialDelaySeconds: 5
           periodSeconds: 10
         livenessProbe:
           httpGet:
-            path: /
+            path: /health
             port: 4004
           initialDelaySeconds: 15
           periodSeconds: 20

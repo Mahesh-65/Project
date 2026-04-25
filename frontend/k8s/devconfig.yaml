@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: frontend-config
+  name: frontend-devconfig
 data:
-  NEXT_PUBLIC_API_URL: "http://api.gamesbond.local"
-  NODE_ENV: "development"
+  NEXT_PUBLIC_API_URL: "http://localhost:4000"
+  NODE_ENV: "production"

@@ -19,13 +19,13 @@ spec:
     spec:
       containers:
       - name: ground-service
-        image: gamesbond-ground-service:v1.0.0
+        image: maheshnandi/gamesbond-ground-service:v1.0.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 4005
         envFrom:
         - configMapRef:
-            name: ground-service-config
+            name: ground-service-devconfig
         - secretRef:
             name: ground-service-secret
         resources:
@@ -41,13 +41,13 @@ spec:
           allowPrivilegeEscalation: false
         readinessProbe:
           httpGet:
-            path: /
+            path: /health
             port: 4005
           initialDelaySeconds: 5
           periodSeconds: 10
         livenessProbe:
           httpGet:
-            path: /
+            path: /health
             port: 4005
           initialDelaySeconds: 15
           periodSeconds: 20

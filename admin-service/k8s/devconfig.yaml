@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: admin-service-config
+  name: admin-service-devconfig
 data:
   PORT: "4007"
-  MONGO_URL: "mongodb://mongo-service:27017/admin_db"
+  MONGO_URL: "mongodb://mongo:27017"

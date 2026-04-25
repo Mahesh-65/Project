@@ -1,11 +1,11 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: user-service
+  name: redis
 spec:
   type: ClusterIP
   selector:
-    app: user-service
+    app: redis
   ports:
-    - port: 4001
-      targetPort: 4001
+    - port: 6379
+      targetPort: 6379

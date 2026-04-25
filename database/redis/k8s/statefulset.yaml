@@ -1,33 +1,28 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
-  name: user-service
+  name: redis
 spec:
-  replicas: 2
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 1
-      maxSurge: 1
+  replicas: 1
   selector:
     matchLabels:
-      app: user-service
+      app: redis
   template:
     metadata:
       labels:
-        app: user-service
+        app: redis
     spec:
       containers:
-      - name: user-service
-        image: maheshnandi/gamesbond-user-service:v1.0.0
+      - name: redis
+        image: maheshnandi/redis:7-alpine
         imagePullPolicy: IfNotPresent
         ports:
-        - containerPort: 4001
+        - containerPort: 6379
         envFrom:
         - configMapRef:
-            name: user-service-devconfig
+            name: redis-devconfig
         - secretRef:
-            name: user-service-secret
+            name: redis-secret
         resources:
           requests:
             cpu: "100m"
@@ -36,18 +31,15 @@ spec:
             cpu: "300m"
             memory: "256Mi"
         securityContext:
-          runAsNonRoot: true
-          runAsUser: 1001
+          runAsNonRoot: false
           allowPrivilegeEscalation: false
         readinessProbe:
-          httpGet:
-            path: /health
-            port: 4001
+          tcpSocket:
+            port: 6379
           initialDelaySeconds: 5
           periodSeconds: 10
         livenessProbe:
-          httpGet:
-            path: /health
-            port: 4001
+          tcpSocket:
+            port: 6379
           initialDelaySeconds: 15
           periodSeconds: 20

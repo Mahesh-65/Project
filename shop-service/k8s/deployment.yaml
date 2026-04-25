@@ -19,13 +19,13 @@ spec:
     spec:
       containers:
       - name: shop-service
-        image: gamesbond-shop-service:v1.0.0
+        image: maheshnandi/gamesbond-shop-service:v1.0.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 4006
         envFrom:
         - configMapRef:
-            name: shop-service-config
+            name: shop-service-devconfig
         - secretRef:
             name: shop-service-secret
         resources:
@@ -41,13 +41,13 @@ spec:
           allowPrivilegeEscalation: false
         readinessProbe:
           httpGet:
-            path: /
+            path: /health
             port: 4006
           initialDelaySeconds: 5
           periodSeconds: 10
         livenessProbe:
           httpGet:
-            path: /
+            path: /health
             port: 4006
           initialDelaySeconds: 15
           periodSeconds: 20

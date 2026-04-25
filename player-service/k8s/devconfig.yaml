@@ -1,8 +1,8 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: player-service-config
+  name: player-service-devconfig
 data:
   PORT: "4002"
-  MONGO_URL: "mongodb://mongo-service:27017/player_db"
-  REDIS_URL: "redis://redis-service:6379"
+  MONGO_URL: "mongodb://mongo:27017"
+  REDIS_URL: "redis://redis:6379"
